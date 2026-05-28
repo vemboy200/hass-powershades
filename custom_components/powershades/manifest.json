@@ -1,13 +1,13 @@
 {
     "domain": "powershades",
     "name": "PowerShades Blinds",
-    "version": "0.1.0",
-    "documentation": "https://github.com/dstocking/powershades-homeassistant",
-    "issue_tracker": "https://github.com/dstocking/powershades-homeassistant/issues",
+    "version": "0.2.1",
+    "documentation": "https://github.com/vemboy200/hass-powershades",
+    "issue_tracker": "https://github.com/vemboy200/hass-powershades/issues",
     "requirements": [],
     "dependencies": [],
     "codeowners": [
-        "dstocking"
+        "vemboy200"
     ],
     "iot_class": "local_push",
     "config_flow": true
