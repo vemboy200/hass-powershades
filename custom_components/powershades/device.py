@@ -204,16 +204,27 @@ class PowerShadesDevice:
 
     @callback
     def _notify_entities(self):
-        """Notify all registered entities of state changes."""
+        """Notify all registered entities of state changes safely."""
         _LOGGER.debug("Current entity callbacks: %s",
                       list(self._entity_callbacks.keys()))
+        
+        # Dynamically find where Home Assistant's instance is stored in this class
+        hass = getattr(self, "hass", getattr(self, "_hass", None))
+
         for entity_id, callback_func in self._entity_callbacks.items():
             try:
                 _LOGGER.debug("Notifying entity callback for %s", entity_id)
-                callback_func()
+                
+                # If we have the hass event loop available, bounce execution onto it
+                if hass and hasattr(hass, "loop"):
+                    hass.loop.call_soon_threadsafe(callback_func)
+                else:
+                    # Fallback if hass isn't instantiated yet during initial setup
+                    callback_func()
+                    
             except Exception as e:
                 _LOGGER.error("Error in entity callback: %s", e)
-
+                
     def _adjust_polling_frequency(self):
         """Adjust polling frequency based on device state."""
         if self._available and self._position is None:
