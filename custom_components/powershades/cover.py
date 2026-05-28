@@ -459,8 +459,10 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
             self._is_opening = self.device.is_opening
             self._is_closing = self.device.is_closing
 
-        # Write the new state to Home Assistant
-        self.async_write_ha_state()
+# FIX: Wrap the coordinator state write in a lambda to protect the loop
+        self.hass.loop.call_soon_threadsafe(
+            lambda: self.async_write_ha_state()
+        )
 
     async def async_update(self) -> None:
         """Update the entity state."""
