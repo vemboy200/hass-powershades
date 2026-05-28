@@ -1,7 +1,7 @@
 # PowerShades Home Assistant Integration
 
 A Home Assistant custom integration for controlling PowerShades motorized blinds via UDP communication.
-
+This fork will be mainted by @vemboy200 with the help of AI
 ## Features
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position)
@@ -18,14 +18,12 @@ This integration can be installed via HACS as a custom repository:
 
 1. In HACS, go to **Settings** → **Repositories**
 2. Click the **+** button to add a new repository
-3. Enter the repository URL: `https://github.com/dstocking/powershades-homeassistant`
+3. Enter the repository URL: `https://github.com/vemboy200/hass-powershades`
 4. Select **Integration** as the category
 5. Click **Add**
 6. Once added, search for "PowerShades" in HACS
 7. Click **Download**
 8. Restart Home Assistant
-
-**Note**: This integration uses semantic versioning with proper GitHub releases. The current version is `v0.1.0`.
 
 ### Manual Installation
 
@@ -39,6 +37,7 @@ This integration can be installed via HACS as a custom repository:
 2. Click **Add Integration**
 3. Search for "PowerShades"
 4. Enter your PowerShades controller's IP address and port
+4.5. Auto-discovery is broken so just manually enter the ip adress of you powershade(s) ill add a tutorial on how to get it when im not lazy
 5. Configure your blinds
 
 ## Usage
@@ -74,22 +73,15 @@ This integration supports PowerShades controllers that communicate via UDP proto
 
 If you encounter errors when installing via HACS:
 
-1. **Version Error**: Ensure the repository has a proper release tag (currently `v0.1.0`)
+1. **Version Error**: Ensure the repository has a proper release tag (currently `v0.2.0`)
 2. **Repository Not Found**: Verify the repository URL is correct and the repository is public
 3. **Download Failed**: Try refreshing HACS and clearing the cache
 
 ### Debug Logging
+Click this button in the integration menu top enable debuging log
 
-Enable debug logging by adding to your `configuration.yaml`:
+<img width="378" height="244" alt="Screenshot 2026-05-28 at 4 40 56 PM" src="https://github.com/user-attachments/assets/443bae92-4350-4ef5-bb4f-e13d6ad17e52" />
 
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.powershades: debug
-```
-
-## Development
 
 ### Contributing
 
@@ -97,7 +89,7 @@ logger:
 2. Create a feature branch
 3. Make your changes
 4. Test thoroughly
-5. Submit a pull request
+5. Submit a pull request with detail about what your fork does
 
 ## License
 
@@ -110,12 +102,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues and feature requests, please use the [GitHub Issues](https://github.com/yourusername/powershades-homeassistant/issues) page.
+For issues and feature requests, please use the [GitHub Issues](https://github.com/vemboy200/hass-powershades/issues) page.
 
-## Changelog
 
-### 0.1.0
-- Initial release
-- Basic cover and button platform support
-- UDP communication implementation
-- Config flow integration 
