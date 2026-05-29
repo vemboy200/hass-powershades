@@ -1,0 +1,148 @@
+rules:
+  # Bronze
+  action-setup: todo
+  comment: |
+      will remove because its not needed
+  appropriate-polling: exempt
+  comment: |
+      This integration is push based with udp, however i need to check if there is polling
+  brands: done
+  common-modules: todo
+  comment: |
+    needs review
+  config-flow-test-coverage: todo
+  comment: |
+      auto discovery needs to be fixed
+  config-flow: done
+  dependency-transparency: exempt
+  comment: |
+    no dependencies
+  docs-actions: todo
+  comment: |
+    will remove actions because its not need
+  docs-high-level-description: todo
+  comment: |
+    describe what powershades is as a company
+  docs-installation-instructions: done
+  docs-removal-instructions: todo
+  entity-event-setup: todo
+  comment: |
+    needs review
+  entity-unique-id: todo
+  comment: |
+    doubt its implemented
+  has-entity-name: todo
+  comment: |
+    needs review
+  runtime-data: todo
+  comment: |
+    needs review
+  test-before-configure: todo
+  comment: |
+    needs review (i have doubts it exists)
+  test-before-setup: todo
+  comment: |
+    needs review (doubt it exists)
+  unique-config-entry: todo
+  comment: |
+    needs to be implemented
+
+  # Silver
+  action-exceptions: todo
+  comment: |
+    doubt it exists
+  config-entry-unloading: todo
+  comment: |
+    needs review
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  comment: |
+    needs review, but i think it exists
+  entity-unavailable: todo
+  comment: |
+    doubt it exists
+  integration-owner: done
+  log-when-unavailable: todo
+  comment: |
+    needs review (doubt it exists)
+  parallel-updates: todo
+  comment: |
+    needs review
+  reauthentication-flow: todo
+  comment: |
+    doesnt exist
+  test-coverage: todo
+  comment: |
+    idk
+
+  # Gold
+  devices: done
+  diagnostics: todo
+  comment: |
+    doubt it
+  discovery-update-info: todo
+  comment: |
+    doubt it
+  discovery: todo
+  comment: |
+    its broken
+  docs-data-update: todo
+  comment: |
+    needs to explain that udp is push based and  polling stuff if thats a thing
+  docs-examples: todo
+  comment: |
+    add automations that i use to control my shades
+  docs-known-limitations: todo
+  comment: |
+    1. no name given out (you have to manually name it) 2. Despite udp being push based, its not always updating the data
+  docs-supported-devices: todo
+  comment: |
+    Poe shades are tested, needs to be listed, the hub for the rf hub is unknown however
+  docs-supported-functions: todo
+  comment: |
+    platforms done, entities not done, functionality the shades are the same not needed
+  docs-troubleshooting: todo
+  comment: |
+    quite basic
+  docs-use-cases: todo
+  comment: |
+    talk about siri using homekit bridge, or tablets used to control shades, or buttons to control shades
+  dynamic-devices: exempt
+  comment: |
+    poe only has one device per entry idk about the rf hub though
+  entity-category: done
+  entity-device-class: todo
+  comment: |
+    needs review
+  entity-disabled-by-default: todo
+  comment: |
+    should the ones listed as configuration be disbaled by default
+  entity-translations: todo
+  comment: |
+    no hablo espanol or chinese or french or any language other than english, ill just use ai
+  exception-translations: todo
+  comment: |
+    same reason as above
+  icon-translations: exempt
+  comment: |
+    not needed, since other than the cover which is already done theres just buttons
+  reconfiguration-flow: todo
+  comment: |
+    the ip address of a shade may change due to dhcp
+  repair-issues: todo
+  comment: |
+    doubt it exists
+  stale-devices: exempt
+  comment: |
+    single device per entry, at least for poe shades
+
+  # Platinum
+  async-dependency: todo
+  comment: |
+    needs review
+  inject-websession: exempt
+  comment: |
+    i dont think it uses http, i gotta check though
+  strict-typing: todo
+  comment: |
+    im not implemting this in some time tbfr
