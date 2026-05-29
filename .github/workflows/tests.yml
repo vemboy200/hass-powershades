@@ -7,11 +7,13 @@ on:
     branches: [ main ]
 
 jobs:
-  lint:
+  lint_and_format:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -25,11 +27,14 @@ jobs:
 
     - name: Check for Python Syntax Errors
       run: |
-        # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings.
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Check Code Formatting with Black
+    - name: Auto-Format Code with Black
       run: |
-        black --check .
+        black .
+
+    - name: Commit and Push Formatted Changes
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Apply automatic Black code formatting"
