@@ -4,6 +4,7 @@ from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -36,6 +37,9 @@ async def async_setup_entry(
 class PowerShadesButtonBase(ButtonEntity):
     """Base class for PowerShades button entities."""
 
+  # Moves ALL inheriting buttons to the Configuration section
+    _attr_entity_category = EntityCategory.CONFIG
+    
     def __init__(self, device):
         """Initialize the PowerShades button."""
         self.device = device
