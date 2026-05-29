@@ -1,3 +1,5 @@
+![Total Downloads](https://img.shields.io/github/downloads/vemboy200/hass-powershades/total)
+
 # PowerShades Home Assistant Integration
 
 A Home Assistant custom integration for controlling PowerShades motorized blinds via UDP communication.
