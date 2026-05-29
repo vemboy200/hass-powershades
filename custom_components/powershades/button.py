@@ -1,4 +1,5 @@
 """PowerShades button platform."""
+
 import logging
 from typing import Any
 
@@ -37,9 +38,9 @@ async def async_setup_entry(
 class PowerShadesButtonBase(ButtonEntity):
     """Base class for PowerShades button entities."""
 
-  # Moves ALL inheriting buttons to the Configuration section
+    # Moves ALL inheriting buttons to the Configuration section
     _attr_entity_category = EntityCategory.CONFIG
-    
+
     def __init__(self, device):
         """Initialize the PowerShades button."""
         self.device = device

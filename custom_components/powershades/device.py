@@ -1,4 +1,5 @@
 """PowerShades device coordinator."""
+
 import asyncio
 import logging
 import socket
@@ -98,8 +99,7 @@ class PowerShadesDevice:
             name=name,
             manufacturer="PowerShades",
             model="Motorized Window Cover",
-            serial_number=str(
-                self.serial_number) if self.serial_number else None,
+            serial_number=str(self.serial_number) if self.serial_number else None,
         )
 
     @property
@@ -137,8 +137,11 @@ class PowerShadesDevice:
         if time_since_response < 120:  # 2 minutes
             return True
         _LOGGER.debug(
-            "Device %s unavailable: last response %.1f seconds ago, "
-            "_available=%s", self.ip_address, time_since_response, self._available)
+            "Device %s unavailable: last response %.1f seconds ago, " "_available=%s",
+            self.ip_address,
+            time_since_response,
+            self._available,
+        )
         return self._available
 
     @property
@@ -157,7 +160,10 @@ class PowerShadesDevice:
         self._is_closing = is_closing
         _LOGGER.debug(
             "Device %s movement state updated: opening=%s, closing=%s",
-            self.ip_address, is_opening, is_closing)
+            self.ip_address,
+            is_opening,
+            is_closing,
+        )
         # Notify entities immediately when movement state changes
         self._notify_entities()
 
@@ -177,7 +183,8 @@ class PowerShadesDevice:
         if self._position is None:
             _LOGGER.info(
                 "Device %s position unknown after startup, requesting status",
-                self.ip_address)
+                self.ip_address,
+            )
             await self.async_request_status_with_retry(max_retries=3)
 
     async def async_stop(self):
@@ -192,8 +199,7 @@ class PowerShadesDevice:
         self._entity_callbacks[entity_id] = callback
         # Immediately notify the new entity of the current state
         try:
-            _LOGGER.debug(
-                "Immediately notifying entity callback for %s", entity_id)
+            _LOGGER.debug("Immediately notifying entity callback for %s", entity_id)
             callback()
         except Exception as e:
             _LOGGER.error("Error in immediate entity callback: %s", e)
@@ -205,26 +211,27 @@ class PowerShadesDevice:
     @callback
     def _notify_entities(self):
         """Notify all registered entities of state changes safely."""
-        _LOGGER.debug("Current entity callbacks: %s",
-                      list(self._entity_callbacks.keys()))
-        
+        _LOGGER.debug(
+            "Current entity callbacks: %s", list(self._entity_callbacks.keys())
+        )
+
         # Dynamically find where Home Assistant's instance is stored in this class
         hass = getattr(self, "hass", getattr(self, "_hass", None))
 
         for entity_id, callback_func in self._entity_callbacks.items():
             try:
                 _LOGGER.debug("Notifying entity callback for %s", entity_id)
-                
+
                 # If we have the hass event loop available, bounce execution onto it
                 if hass and hasattr(hass, "loop"):
                     hass.loop.call_soon_threadsafe(callback_func)
                 else:
                     # Fallback if hass isn't instantiated yet during initial setup
                     callback_func()
-                    
+
             except Exception as e:
                 _LOGGER.error("Error in entity callback: %s", e)
-                
+
     def _adjust_polling_frequency(self):
         """Adjust polling frequency based on device state."""
         if self._available and self._position is None:
@@ -232,14 +239,16 @@ class PowerShadesDevice:
             if self.coordinator.update_interval.total_seconds() > 5:
                 _LOGGER.debug(
                     "Device %s position unknown, increasing polling frequency",
-                    self.ip_address)
+                    self.ip_address,
+                )
                 self.coordinator.update_interval = timedelta(seconds=5)
         elif self._available and self._position is not None:
             # Device available and position known - normal polling
             if self.coordinator.update_interval.total_seconds() < 10:
                 _LOGGER.debug(
                     "Device %s position known, restoring normal polling",
-                    self.ip_address)
+                    self.ip_address,
+                )
                 self.coordinator.update_interval = timedelta(seconds=10)
 
     async def _async_update_data(self):
@@ -248,34 +257,36 @@ class PowerShadesDevice:
         if time.time() - self._last_status_response > 180:  # No response for 3 minutes
             if self._available:
                 _LOGGER.warning(
-                    "Device %s not responding, marking as unavailable",
-                    self.ip_address)
+                    "Device %s not responding, marking as unavailable", self.ip_address
+                )
                 self._available = False
                 self._notify_entities()
         else:
             if not self._available:
                 _LOGGER.info(
-                    "Device %s responding again, marking as available",
-                    self.ip_address)
+                    "Device %s responding again, marking as available", self.ip_address
+                )
                 self._available = True
                 self._notify_entities()
 
         # Request status with retry logic
-        _LOGGER.debug(
-            "Device %s: Starting periodic status request", self.ip_address)
+        _LOGGER.debug("Device %s: Starting periodic status request", self.ip_address)
         await self.async_request_status_with_retry()
 
         # If device is available but position is unknown, be more aggressive
         if self._available and self._position is None:
             _LOGGER.debug(
                 "Device %s available but position unknown, requesting status again",
-                self.ip_address)
+                self.ip_address,
+            )
             # Request status again with more retries for unknown position
             await self.async_request_status_with_retry(max_retries=3)
         elif self._available and self._position is not None:
             _LOGGER.debug(
                 "Device %s: Current position is %d%%, continuing normal polling",
-                self.ip_address, self._position)
+                self.ip_address,
+                self._position,
+            )
 
         return {
             "position": self._position,
@@ -310,11 +321,13 @@ class PowerShadesDevice:
                     break
                 else:
                     _LOGGER.debug(
-                        "No status response received on attempt %d", attempt + 1)
+                        "No status response received on attempt %d", attempt + 1
+                    )
 
             except Exception as e:
                 _LOGGER.error(
-                    "Error requesting status on attempt %d: %s", attempt + 1, e)
+                    "Error requesting status on attempt %d: %s", attempt + 1, e
+                )
 
             if attempt < max_retries:
                 await asyncio.sleep(1.0)  # Wait before retry
@@ -326,7 +339,8 @@ class PowerShadesDevice:
                 if self._available:
                     _LOGGER.warning(
                         "Device %s failed to respond after %d attempts",
-                        self.ip_address, self._consecutive_failures
+                        self.ip_address,
+                        self._consecutive_failures,
                     )
                     self._available = False
                     self._notify_entities()
@@ -440,13 +454,12 @@ class PowerShadesDevice:
         # For intermediate positions, use the 50% logic
         if self.position is None:
             _LOGGER.warning(
-                "Cannot toggle: position unknown for device %s",
-                self.ip_address)
+                "Cannot toggle: position unknown for device %s", self.ip_address
+            )
             return
 
         if self.position > 50:
-            _LOGGER.debug(
-                "Cover is partially open (>50%%), closing it")
+            _LOGGER.debug("Cover is partially open (>50%%), closing it")
             # Set closing state
             self._is_opening = False
             self._is_closing = True
@@ -454,8 +467,7 @@ class PowerShadesDevice:
             self._notify_entities()
             await self.async_set_position(0)  # Close
         else:
-            _LOGGER.debug(
-                "Cover is partially closed (<=50%%), opening it")
+            _LOGGER.debug("Cover is partially closed (<=50%%), opening it")
             # Set opening state
             self._is_opening = True
             self._is_closing = False
@@ -470,9 +482,7 @@ class PowerShadesDevice:
         # Mark device as available when we receive a response
         if not self._available:
             self._available = True
-            _LOGGER.info(
-                "Device %s responding, marking as available",
-                self.ip_address)
+            _LOGGER.info("Device %s responding, marking as available", self.ip_address)
 
         if self._position != position:
             self._position = position
@@ -489,18 +499,26 @@ class PowerShadesDevice:
 
         # Always notify entities and update coordinator
         self._notify_entities()
-        self.coordinator.async_set_updated_data({
-            "position": self._position,
-            "battery_voltage": self._battery_voltage,
-            "battery_percentage": self.battery_percentage,
-            "available": self._available,
-        })
+        self.coordinator.async_set_updated_data(
+            {
+                "position": self._position,
+                "battery_voltage": self._battery_voltage,
+                "battery_percentage": self.battery_percentage,
+                "available": self._available,
+            }
+        )
 
         _LOGGER.debug(
             "Device %s status updated: position=%d, battery=%d mV, available=%s",
-            self.ip_address, position, battery_voltage, self._available)
+            self.ip_address,
+            position,
+            battery_voltage,
+            self._available,
+        )
 
-    def _build_simple_packet(self, op: int, sequence: Optional[int] = None, channel: int = 0x00) -> bytes:
+    def _build_simple_packet(
+        self, op: int, sequence: Optional[int] = None, channel: int = 0x00
+    ) -> bytes:
         """Build a simple UDP packet."""
         # Packet structure: length(2) + crc(2) + op(1) + seq(1) + channel(1) + reserved(1)
         length = 0  # No payload for simple packets
@@ -512,25 +530,34 @@ class PowerShadesDevice:
             sequence = self._sequence_counter
 
         # Build the data for CRC calculation: Op + Sequence + Channel + Reserved + Payload
-        crc_data = struct.pack('<BBBB', op, sequence, channel, reserved)
+        crc_data = struct.pack("<BBBB", op, sequence, channel, reserved)
         crc = crc16_xmodem(crc_data)
 
         # Build the complete packet: Length + CRC + Op + Sequence + Channel + Reserved
-        packet = struct.pack('<HHBBBB', length, crc, op,
-                             sequence, channel, reserved)
+        packet = struct.pack("<HHBBBB", length, crc, op, sequence, channel, reserved)
 
         _LOGGER.debug(
             "Building simple packet: length=%d, crc=0x%04X, op=0x%02X, seq=%d, "
             "channel=%d, reserved=%d, packet=%s",
-            length, crc, op, sequence, channel, reserved, packet.hex()
+            length,
+            crc,
+            op,
+            sequence,
+            channel,
+            reserved,
+            packet.hex(),
         )
         return packet
 
-    def _build_status_request_packet(self, sequence: Optional[int] = None, channel: int = 0x00) -> bytes:
+    def _build_status_request_packet(
+        self, sequence: Optional[int] = None, channel: int = 0x00
+    ) -> bytes:
         """Build status request packet."""
         return self._build_simple_packet(OP_GET_STATUS, sequence, channel)
 
-    def _build_set_limit_packet(self, limit_type: int, sequence: Optional[int] = None, channel: int = 0x00) -> bytes:
+    def _build_set_limit_packet(
+        self, limit_type: int, sequence: Optional[int] = None, channel: int = 0x00
+    ) -> bytes:
         """Build set limit packet."""
         # Packet structure: length(2) + crc(2) + op(1) + seq(1) + channel(1) + reserved(1) + payload(2)
         length = 2  # Payload size
@@ -542,25 +569,38 @@ class PowerShadesDevice:
             sequence = self._sequence_counter
 
         # Build payload: Limit Type(2)
-        payload = struct.pack('<H', limit_type)
+        payload = struct.pack("<H", limit_type)
 
         # Build the data for CRC calculation: Op + Sequence + Channel + Reserved + Payload
-        crc_data = struct.pack('<BBBB', OP_SET_LIMIT,
-                               sequence, channel, reserved) + payload
+        crc_data = (
+            struct.pack("<BBBB", OP_SET_LIMIT, sequence, channel, reserved) + payload
+        )
         crc = crc16_xmodem(crc_data)
 
         # Build the complete packet: Length + CRC + Op + Sequence + Channel + Reserved + Payload
-        packet = struct.pack(
-            '<HHBBBB', length, crc, OP_SET_LIMIT, sequence, channel, reserved) + payload
+        packet = (
+            struct.pack(
+                "<HHBBBB", length, crc, OP_SET_LIMIT, sequence, channel, reserved
+            )
+            + payload
+        )
 
         _LOGGER.debug(
             "Building set limit packet: length=%d, crc=0x%04X, op=0x%02X, "
             "seq=%d, channel=%d, limit_type=0x%04X, packet=%s",
-            length, crc, OP_SET_LIMIT, sequence, channel, limit_type, packet.hex()
+            length,
+            crc,
+            OP_SET_LIMIT,
+            sequence,
+            channel,
+            limit_type,
+            packet.hex(),
         )
         return packet
 
-    def _build_set_position_packet(self, percent: int, sequence: Optional[int] = None, channel: int = 0x00) -> bytes:
+    def _build_set_position_packet(
+        self, percent: int, sequence: Optional[int] = None, channel: int = 0x00
+    ) -> bytes:
         """Build set position packet."""
         # Packet structure: length(2) + crc(2) + op(1) + seq(1) + channel(1) + reserved(1) + payload(10)
         length = 10  # Payload size
@@ -575,21 +615,35 @@ class PowerShadesDevice:
         mask = 0x0001  # MASK_PERCENT
         tilt = 0
         channel_mask = 0  # Use channel, not mask
-        payload = struct.pack('<HhhI', mask, percent, tilt, channel_mask)
+        payload = struct.pack("<HhhI", mask, percent, tilt, channel_mask)
 
         # Build the data for CRC calculation: Op + Sequence + Channel + Reserved + Payload
-        crc_data = struct.pack('<BBBB', OP_SET_POSITION,
-                               sequence, channel, reserved) + payload
+        crc_data = (
+            struct.pack("<BBBB", OP_SET_POSITION, sequence, channel, reserved) + payload
+        )
         crc = crc16_xmodem(crc_data)
 
         # Build the complete packet: Length + CRC + Op + Sequence + Channel + Reserved + Payload
-        packet = struct.pack(
-            '<HHBBBB', length, crc, OP_SET_POSITION, sequence, channel, reserved) + payload
+        packet = (
+            struct.pack(
+                "<HHBBBB", length, crc, OP_SET_POSITION, sequence, channel, reserved
+            )
+            + payload
+        )
 
         _LOGGER.debug(
             "Building set position packet: length=%d, crc=0x%04X, op=0x%02X, "
             "seq=%d, channel=%d, percent=%d, mask=0x%04X, tilt=%d, channel_mask=0x%08X, packet=%s",
-            length, crc, OP_SET_POSITION, sequence, channel, percent, mask, tilt, channel_mask, packet.hex()
+            length,
+            crc,
+            OP_SET_POSITION,
+            sequence,
+            channel,
+            percent,
+            mask,
+            tilt,
+            channel_mask,
+            packet.hex(),
         )
         return packet
 
@@ -611,7 +665,7 @@ class UDPListener:
 
         try:
             # Bind to any available port (don't try to bind to port 42)
-            self.socket.bind(('', 0))
+            self.socket.bind(("", 0))
 
             self.running = True
             listener_port = self.socket.getsockname()[1]
@@ -644,16 +698,24 @@ class UDPListener:
         if self.socket and self.running:
             try:
                 self.socket.sendto(packet, (self.device.ip_address, UDP_PORT))
-                _LOGGER.debug("Sent packet to %s:%d: %s",
-                              self.device.ip_address, UDP_PORT, packet.hex())
+                _LOGGER.debug(
+                    "Sent packet to %s:%d: %s",
+                    self.device.ip_address,
+                    UDP_PORT,
+                    packet.hex(),
+                )
             except Exception as e:
                 _LOGGER.error("Failed to send packet: %s", e)
 
     def _handle_status_response(self, data: bytes, addr: tuple) -> None:
         """Handle status response from device."""
         try:
-            _LOGGER.debug("Received UDP packet from %s: length=%d, data=%s",
-                          addr[0], len(data), data.hex())
+            _LOGGER.debug(
+                "Received UDP packet from %s: length=%d, data=%s",
+                addr[0],
+                len(data),
+                data.hex(),
+            )
 
             if len(data) < 8:  # Minimum packet size
                 _LOGGER.debug("Packet too short: %d bytes", len(data))
@@ -661,10 +723,17 @@ class UDPListener:
 
             # Parse header: Length(2) + CRC(2) + Op(1) + Sequence(1) + Channel(1) + Reserved(1)
             length, crc, op, sequence, channel, reserved = struct.unpack(
-                '<HHBBBB', data[:8])
+                "<HHBBBB", data[:8]
+            )
 
-            _LOGGER.debug("Packet header: length=%d, crc=0x%04X, op=0x%02X, seq=%d, channel=%d",
-                          length, crc, op, sequence, channel)
+            _LOGGER.debug(
+                "Packet header: length=%d, crc=0x%04X, op=0x%02X, seq=%d, channel=%d",
+                length,
+                crc,
+                op,
+                sequence,
+                channel,
+            )
 
             if op != OP_GET_STATUS:
                 _LOGGER.debug("Not a status response, op=0x%02X", op)
@@ -672,30 +741,46 @@ class UDPListener:
 
             if len(data) < 8 + length:  # Check if we have enough data for payload
                 _LOGGER.debug(
-                    "Packet too short for payload: %d < %d", len(data), 8 + length)
+                    "Packet too short for payload: %d < %d", len(data), 8 + length
+                )
                 return
 
             # Parse payload according to specification
-            payload = data[8:8+length]
+            payload = data[8 : 8 + length]
             _LOGGER.debug("Payload length: %d bytes", len(payload))
 
             # Handle different payload sizes - device seems to send 40 bytes
             if len(payload) >= 30:  # 30-byte or longer status packet
                 # Parse the first 30 bytes as the standard status fields
-                (current_percent, current_tilt, current_memory, battery_voltage,
-                 time_val, cycles, stalls, temperature, raw_percent, raw_tilt) = struct.unpack('<hhHHIIIhII', payload[:30])
+                (
+                    current_percent,
+                    current_tilt,
+                    current_memory,
+                    battery_voltage,
+                    time_val,
+                    cycles,
+                    stalls,
+                    temperature,
+                    raw_percent,
+                    raw_tilt,
+                ) = struct.unpack("<hhHHIIIhII", payload[:30])
 
                 _LOGGER.debug(
                     "Status response: percent=%d, tilt=%d, battery=%d mV, "
                     "cycles=%d, stalls=%d",
-                    current_percent, current_tilt, battery_voltage, cycles, stalls
+                    current_percent,
+                    current_tilt,
+                    battery_voltage,
+                    cycles,
+                    stalls,
                 )
 
                 # Update device state using the correct method
                 self.device.update_status(current_percent, battery_voltage)
             else:
                 _LOGGER.debug(
-                    "Payload too short for status packet: %d < 30", len(payload))
+                    "Payload too short for status packet: %d < 30", len(payload)
+                )
 
         except Exception as e:
             _LOGGER.error("Error parsing status response: %s", e)

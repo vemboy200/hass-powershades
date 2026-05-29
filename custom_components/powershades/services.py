@@ -1,4 +1,5 @@
 """PowerShades services."""
+
 import logging
 from typing import Any
 
@@ -140,24 +141,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         await device.async_step_down()
 
     # Register services
-    hass.services.async_register(
-        DOMAIN, "toggle_shade", async_toggle_shade
-    )
-    hass.services.async_register(
-        DOMAIN, "set_upper_limit", async_set_upper_limit
-    )
-    hass.services.async_register(
-        DOMAIN, "set_lower_limit", async_set_lower_limit
-    )
-    hass.services.async_register(
-        DOMAIN, "clear_limits", async_clear_limits
-    )
-    hass.services.async_register(
-        DOMAIN, "step_up", async_step_up
-    )
-    hass.services.async_register(
-        DOMAIN, "step_down", async_step_down
-    )
+    hass.services.async_register(DOMAIN, "toggle_shade", async_toggle_shade)
+    hass.services.async_register(DOMAIN, "set_upper_limit", async_set_upper_limit)
+    hass.services.async_register(DOMAIN, "set_lower_limit", async_set_lower_limit)
+    hass.services.async_register(DOMAIN, "clear_limits", async_clear_limits)
+    hass.services.async_register(DOMAIN, "step_up", async_step_up)
+    hass.services.async_register(DOMAIN, "step_down", async_step_down)
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:

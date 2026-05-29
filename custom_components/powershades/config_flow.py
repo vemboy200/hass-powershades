@@ -35,14 +35,12 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if device_info:
                     # Use serial number as unique ID
-                    unique_id = str(device_info['serial'])
+                    unique_id = str(device_info["serial"])
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
 
                     # Get device name
-                    device_name = await async_get_device_name(
-                        self.hass, selected_ip
-                    )
+                    device_name = await async_get_device_name(self.hass, selected_ip)
                     if device_name:
                         title = f"PowerShade {device_name}"
                     else:
@@ -52,8 +50,8 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         title=title,
                         data={
                             "ip": selected_ip,
-                            "serial": device_info['serial'],
-                            "name": device_name
+                            "serial": device_info["serial"],
+                            "name": device_name,
                         },
                     )
             elif user_input.get("manual_entry"):
@@ -65,22 +63,21 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         discovered = await async_discover_devices(self.hass)
 
         # Store discovered devices for later use
-        self.discovered_devices = {
-            device['ip']: device for device in discovered
-        }
+        self.discovered_devices = {device["ip"]: device for device in discovered}
 
         if discovered:
             device_choices = {
-                d['ip']: f"{d['ip']} (Serial: {d['serial']})"
-                for d in discovered
+                d["ip"]: f"{d['ip']} (Serial: {d['serial']})" for d in discovered
             }
 
             return self.async_show_form(
                 step_id="discovery",
-                data_schema=vol.Schema({
-                    vol.Optional("select_device"): vol.In(device_choices),
-                    vol.Optional("manual_entry"): bool,
-                }),
+                data_schema=vol.Schema(
+                    {
+                        vol.Optional("select_device"): vol.In(device_choices),
+                        vol.Optional("manual_entry"): bool,
+                    }
+                ),
                 description_placeholders={
                     "devices": ", ".join(device_choices.values())
                 },
@@ -107,7 +104,7 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                     # First check if it's in our discovered devices
                     for device in self.discovered_devices.values():
-                        if device['ip'] == ip_address:
+                        if device["ip"] == ip_address:
                             device_info = device
                             break
 
@@ -120,8 +117,7 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         try:
                             from .udp import build_get_serial_packet, parse_serial_reply
 
-                            sock = socket.socket(
-                                socket.AF_INET, socket.SOCK_DGRAM)
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                             sock.settimeout(2.0)
 
                             packet = build_get_serial_packet()
@@ -130,22 +126,25 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             try:
                                 data, addr = sock.recvfrom(256)
                                 parsed = parse_serial_reply(data)
-                                if parsed and parsed['ip'] == ip_address:
+                                if parsed and parsed["ip"] == ip_address:
                                     device_info = parsed
                                     _LOGGER.info(
-                                        f"Retrieved device info for {ip_address}: serial={parsed['serial']}")
+                                        f"Retrieved device info for {ip_address}: serial={parsed['serial']}"
+                                    )
                             except socket.timeout:
                                 _LOGGER.warning(
-                                    f"No response from {ip_address} during direct serial request")
+                                    f"No response from {ip_address} during direct serial request"
+                                )
                             finally:
                                 sock.close()
                         except Exception as e:
                             _LOGGER.error(
-                                f"Error getting device info for {ip_address}: {e}")
+                                f"Error getting device info for {ip_address}: {e}"
+                            )
 
                     if device_info:
                         # Use serial number as unique ID
-                        unique_id = str(device_info['serial'])
+                        unique_id = str(device_info["serial"])
                         await self.async_set_unique_id(unique_id)
                         self._abort_if_unique_id_configured()
                     else:
@@ -165,16 +164,18 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         title=title,
                         data={
                             "ip": ip_address,
-                            "serial": device_info['serial'] if device_info else None,
-                            "name": device_name
+                            "serial": device_info["serial"] if device_info else None,
+                            "name": device_name,
                         },
                     )
 
         return self.async_show_form(
             step_id="manual_entry",
-            data_schema=vol.Schema({
-                vol.Required("ip"): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("ip"): str,
+                }
+            ),
             errors=errors,
         )
 

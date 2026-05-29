@@ -1,4 +1,5 @@
 """The PowerShades integration."""
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -24,6 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create device coordinator
     from .device import PowerShadesDevice
+
     device = PowerShadesDevice(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = device
 
@@ -31,9 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await device.async_start()
 
     # Set up all platforms for this config entry
-    await hass.config_entries.async_forward_entry_setups(
-        entry, PLATFORMS
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
@@ -45,9 +45,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if device:
         await device.async_stop()
 
-    unload_ok = await hass.config_entries.async_unload_platforms(
-        entry, PLATFORMS
-    )
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
 

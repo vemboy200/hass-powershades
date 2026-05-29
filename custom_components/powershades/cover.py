@@ -1,4 +1,5 @@
 """PowerShades cover platform."""
+
 import logging
 from typing import Any
 
@@ -97,7 +98,9 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
             if self._last_known_position is not None:
                 _LOGGER.debug(
                     "Device %s unavailable, using last known position: %d",
-                    self.entity_id, self._last_known_position)
+                    self.entity_id,
+                    self._last_known_position,
+                )
                 return self._last_known_position
             return None
 
@@ -193,8 +196,11 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         # If we're in stopping state, don't update movement states
         # This prevents the position update from setting movement states back
         if self._is_stopping:
-            _LOGGER.debug("Cover %s is stopping, ignoring position update: %d",
-                          self.entity_id, new_position)
+            _LOGGER.debug(
+                "Cover %s is stopping, ignoring position update: %d",
+                self.entity_id,
+                new_position,
+            )
             self._last_position = new_position
             return
 
@@ -204,31 +210,46 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
                 # Position increased - opening
                 self._is_opening = True
                 self._is_closing = False
-                _LOGGER.debug("Cover %s is opening: %d -> %d",
-                              self.entity_id, self._last_position, new_position)
+                _LOGGER.debug(
+                    "Cover %s is opening: %d -> %d",
+                    self.entity_id,
+                    self._last_position,
+                    new_position,
+                )
             elif new_position < self._last_position:
                 # Position decreased - closing
                 self._is_opening = False
                 self._is_closing = True
-                _LOGGER.debug("Cover %s is closing: %d -> %d",
-                              self.entity_id, self._last_position, new_position)
+                _LOGGER.debug(
+                    "Cover %s is closing: %d -> %d",
+                    self.entity_id,
+                    self._last_position,
+                    new_position,
+                )
 
             # Check if we've reached the target position
-            if (self._target_position is not None and
-                    abs(new_position - self._target_position) <= 2):  # Within 2% tolerance
+            if (
+                self._target_position is not None
+                and abs(new_position - self._target_position) <= 2
+            ):  # Within 2% tolerance
                 self._is_opening = False
                 self._is_closing = False
                 self._target_position = None
-                _LOGGER.debug("Cover %s reached target position %d",
-                              self.entity_id, new_position)
+                _LOGGER.debug(
+                    "Cover %s reached target position %d", self.entity_id, new_position
+                )
         else:
             # Position unchanged - check if we should stop movement states
-            if self._target_position is not None and abs(new_position - self._target_position) <= 2:
+            if (
+                self._target_position is not None
+                and abs(new_position - self._target_position) <= 2
+            ):
                 self._is_opening = False
                 self._is_closing = False
                 self._target_position = None
-                _LOGGER.debug("Cover %s stopped at position %d",
-                              self.entity_id, new_position)
+                _LOGGER.debug(
+                    "Cover %s stopped at position %d", self.entity_id, new_position
+                )
 
         self._last_position = new_position
 
@@ -240,12 +261,15 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         import time
 
         # Only request if position is unknown and device is available
-        if (self.device.position is None and
-            self.device.available and
-                time.time() - self._last_state_request > self._state_request_interval):
+        if (
+            self.device.position is None
+            and self.device.available
+            and time.time() - self._last_state_request > self._state_request_interval
+        ):
 
             _LOGGER.debug(
-                "Requesting state for cover %s (position unknown)", self.entity_id)
+                "Requesting state for cover %s (position unknown)", self.entity_id
+            )
             self._last_state_request = time.time()
 
             # Use the device's existing status request method
@@ -254,8 +278,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
         if not self.device.available:
-            _LOGGER.warning(
-                "Cannot open cover %s: device unavailable", self.entity_id)
+            _LOGGER.warning("Cannot open cover %s: device unavailable", self.entity_id)
             return
 
         self._target_position = 100
@@ -272,8 +295,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
         if not self.device.available:
-            _LOGGER.warning(
-                "Cannot close cover %s: device unavailable", self.entity_id)
+            _LOGGER.warning("Cannot close cover %s: device unavailable", self.entity_id)
             return
 
         self._target_position = 0
@@ -290,8 +312,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover."""
         if not self.device.available:
-            _LOGGER.warning(
-                "Cannot stop cover %s: device unavailable", self.entity_id)
+            _LOGGER.warning("Cannot stop cover %s: device unavailable", self.entity_id)
             return
 
         # Clear movement states immediately
@@ -313,7 +334,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         # If the cover was moving, request current position
         if was_moving:
             _LOGGER.debug(
-                "Cover %s stopped, requesting current position", self.entity_id)
+                "Cover %s stopped, requesting current position", self.entity_id
+            )
             # Request current position from device
             await self.device.async_request_status_with_retry()
             # Force another state update after position request
@@ -325,7 +347,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Move the cover to a specific position."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot set position for cover %s: device unavailable", self.entity_id)
+                "Cannot set position for cover %s: device unavailable", self.entity_id
+            )
             return
 
         position = kwargs.get("position")
@@ -363,7 +386,9 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Set the upper limit (fully open position)."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot set upper limit for cover %s: device unavailable", self.entity_id)
+                "Cannot set upper limit for cover %s: device unavailable",
+                self.entity_id,
+            )
             return
         await self.device.async_set_upper_limit()
 
@@ -371,7 +396,9 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Set the lower limit (fully closed position)."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot set lower limit for cover %s: device unavailable", self.entity_id)
+                "Cannot set lower limit for cover %s: device unavailable",
+                self.entity_id,
+            )
             return
         await self.device.async_set_lower_limit()
 
@@ -379,7 +406,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Clear both upper and lower limits."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot clear limits for cover %s: device unavailable", self.entity_id)
+                "Cannot clear limits for cover %s: device unavailable", self.entity_id
+            )
             return
         await self.device.async_clear_limits()
 
@@ -387,7 +415,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Move the motor up one step (for trimming limits)."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot step up for cover %s: device unavailable", self.entity_id)
+                "Cannot step up for cover %s: device unavailable", self.entity_id
+            )
             return
         await self.device.async_step_up()
 
@@ -395,7 +424,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         """Move the motor down one step (for trimming limits)."""
         if not self.device.available:
             _LOGGER.warning(
-                "Cannot step down for cover %s: device unavailable", self.entity_id)
+                "Cannot step down for cover %s: device unavailable", self.entity_id
+            )
             return
         await self.device.async_step_down()
 
@@ -404,8 +434,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         await super().async_added_to_hass()
 
         # Register callback with device for state updates
-        self.device.register_entity_callback(
-            self.entity_id, self._handle_device_update)
+        self.device.register_entity_callback(self.entity_id, self._handle_device_update)
 
         # Force a state update
         await self.async_update_ha_state(force_refresh=True)
@@ -421,22 +450,27 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         # Force the state to be written to Home Assistant
         self.async_write_ha_state()
         # Schedule another update to ensure it's processed
-        self.hass.async_create_task(
-            self.async_update_ha_state(force_refresh=True))
+        self.hass.async_create_task(self.async_update_ha_state(force_refresh=True))
 
     def _handle_device_update(self) -> None:
         """Handle device state updates (called by device callback)."""
-        _LOGGER.debug("Cover %s received device update callback",
-                      self.entity_id)
+        _LOGGER.debug("Cover %s received device update callback", self.entity_id)
 
         # Sync with device movement state
-        if self.device.is_opening != self._is_opening or self.device.is_closing != self._is_closing:
+        if (
+            self.device.is_opening != self._is_opening
+            or self.device.is_closing != self._is_closing
+        ):
             _LOGGER.debug(
                 "Cover %s syncing movement state from device callback: "
                 "entity(opening=%s, closing=%s) -> device(opening=%s, "
                 "closing=%s)",
-                self.entity_id, self._is_opening, self._is_closing,
-                self.device.is_opening, self.device.is_closing)
+                self.entity_id,
+                self._is_opening,
+                self._is_closing,
+                self.device.is_opening,
+                self.device.is_closing,
+            )
             self._is_opening = self.device.is_opening
             self._is_closing = self.device.is_closing
 
@@ -449,20 +483,25 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         self._update_movement_state(self.device.position)
 
         # Sync with device movement state to handle toggle commands
-        if self.device.is_opening != self._is_opening or self.device.is_closing != self._is_closing:
+        if (
+            self.device.is_opening != self._is_opening
+            or self.device.is_closing != self._is_closing
+        ):
             _LOGGER.debug(
                 "Cover %s syncing movement state with device: "
                 "entity(opening=%s, closing=%s) -> device(opening=%s, "
                 "closing=%s)",
-                self.entity_id, self._is_opening, self._is_closing,
-                self.device.is_opening, self.device.is_closing)
+                self.entity_id,
+                self._is_opening,
+                self._is_closing,
+                self.device.is_opening,
+                self.device.is_closing,
+            )
             self._is_opening = self.device.is_opening
             self._is_closing = self.device.is_closing
 
-# FIX: Wrap the coordinator state write in a lambda to protect the loop
-        self.hass.loop.call_soon_threadsafe(
-            lambda: self.async_write_ha_state()
-        )
+        # FIX: Wrap the coordinator state write in a lambda to protect the loop
+        self.hass.loop.call_soon_threadsafe(lambda: self.async_write_ha_state())
 
     async def async_update(self) -> None:
         """Update the entity state."""

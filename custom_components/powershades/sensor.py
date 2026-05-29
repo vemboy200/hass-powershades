@@ -1,4 +1,5 @@
 """PowerShades sensor platform."""
+
 import logging
 
 from homeassistant.components.sensor import (
@@ -66,9 +67,7 @@ class PowerShadesBatterySensor(SensorEntity):
         """When entity is added to hass."""
         _LOGGER.debug("Registering entity callback for %s", self.entity_id)
         # Register for updates from the device
-        self.device.register_entity_callback(
-            self.entity_id, self.async_write_ha_state
-        )
+        self.device.register_entity_callback(self.entity_id, self.async_write_ha_state)
         # Force a state update
         await self.async_update_ha_state(force_refresh=True)
 
@@ -83,7 +82,8 @@ class PowerShadesBatterySensor(SensorEntity):
         """Return True if entity is available."""
         avail = self.device.available
         _LOGGER.debug(
-            "Entity %s available property called, returning %s", self.entity_id, avail)
+            "Entity %s available property called, returning %s", self.entity_id, avail
+        )
         return avail
 
 
@@ -103,9 +103,7 @@ class PowerShadesVoltageSensor(SensorEntity):
 
         self._attr_device_class = SensorDeviceClass.VOLTAGE
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_native_unit_of_measurement = (
-            UnitOfElectricPotential.MILLIVOLT
-        )
+        self._attr_native_unit_of_measurement = UnitOfElectricPotential.MILLIVOLT
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
@@ -122,9 +120,7 @@ class PowerShadesVoltageSensor(SensorEntity):
         """When entity is added to hass."""
         _LOGGER.debug("Registering entity callback for %s", self.entity_id)
         # Register for updates from the device
-        self.device.register_entity_callback(
-            self.entity_id, self.async_write_ha_state
-        )
+        self.device.register_entity_callback(self.entity_id, self.async_write_ha_state)
         # Force a state update
         await self.async_update_ha_state(force_refresh=True)
 
@@ -139,5 +135,6 @@ class PowerShadesVoltageSensor(SensorEntity):
         """Return True if entity is available."""
         avail = self.device.available
         _LOGGER.debug(
-            "Entity %s available property called, returning %s", self.entity_id, avail)
+            "Entity %s available property called, returning %s", self.entity_id, avail
+        )
         return avail
