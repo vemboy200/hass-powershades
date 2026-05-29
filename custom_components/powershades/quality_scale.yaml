@@ -3,86 +3,89 @@ rules:
   action-setup: todo
   comment: |
       will remove because its not needed
-  appropriate-polling: exempt
+  appropriate-polling: done
   comment: |
-      This integration is push based with udp, however i need to check if there is polling
+      polls every 10 seconds if device position is known and every 5 seconds if unknown, i can change it easily, but considering that
+      tp-link wifi devices (platinum quality integration) are polled every 5 seconds and these poe shades are being polled every 10 seconds 
+      (or 5 if unknown) i think its fine.
   brands: done
   common-modules: todo
   comment: |
-    needs review
+    needs entity.py i think
   config-flow-test-coverage: todo
   comment: |
       auto discovery needs to be fixed
   config-flow: done
-  dependency-transparency: exempt
+  dependency-transparency: todo
   comment: |
-    no dependencies
+    no dependencies, but i probably need some
   docs-actions: todo
   comment: |
-    will remove actions because its not need
+    will remove actions because its not needed
   docs-high-level-description: todo
   comment: |
     describe what powershades is as a company
   docs-installation-instructions: done
   docs-removal-instructions: todo
-  entity-event-setup: todo
+  entity-event-setup: done
   comment: |
-    needs review
+    looks complete
   entity-unique-id: todo
   comment: |
     doubt its implemented
   has-entity-name: todo
   comment: |
-    needs review
+    its false in cover.py
   runtime-data: todo
   comment: |
-    needs review
+    doesnt exist
   test-before-configure: todo
   comment: |
-    needs review (i have doubts it exists)
+    if theres a wrong ip adress or the integration cant connect because the port is blocked 
+    a warning is given in the logs but then the config entry is created
   test-before-setup: todo
   comment: |
-    needs review (doubt it exists)
-  unique-config-entry: todo
+     if theres a wrong ip adress or the integration cant connect because the port is blocked no error is given i presume
+     gonna be difficult to test since my shades are ona static ip and im sure my parents will freak out if i change it
+     because it might break stuff like control4
+  unique-config-entry: done
   comment: |
-    needs to be implemented
+    works but could look better
 
   # Silver
   action-exceptions: todo
   comment: |
-    doubt it exists
-  config-entry-unloading: todo
-  comment: |
-    needs review
+    im going to remove actions
+  config-entry-unloading: done
   docs-configuration-parameters: done
   docs-installation-parameters: done
   comment: |
-    needs review, but i think it exists
+    its there could be better though
   entity-unavailable: todo
   comment: |
-    doubt it exists
+    gets marked as unknown or last state
   integration-owner: done
   log-when-unavailable: todo
   comment: |
-    needs review (doubt it exists)
+    well the integration doesnt even mark as unavaible
   parallel-updates: todo
   comment: |
-    needs review
+    doesnt exist
   reauthentication-flow: todo
   comment: |
-    doesnt exist
+    doesnt exist i think
   test-coverage: todo
   comment: |
-    idk
+   i have check i may need more kinds though
 
   # Gold
   devices: done
   diagnostics: todo
   comment: |
-    doubt it
+    doesnt exist
   discovery-update-info: todo
   comment: |
-    doubt it
+    could use serial number to identify shade and update ip address
   discovery: todo
   comment: |
     its broken
@@ -94,13 +97,16 @@ rules:
     add automations that i use to control my shades
   docs-known-limitations: todo
   comment: |
-    1. no name given out (you have to manually name it) 2. Despite udp being push based, its not always updating the data
+    1. no name given out, only serial number (you have to manually name it) 
+    2. Despite udp being push based, its not always updating the data, and requires polling
   docs-supported-devices: todo
   comment: |
     Poe shades are tested, needs to be listed, the hub for the rf hub is unknown however
   docs-supported-functions: todo
   comment: |
-    platforms done, entities not done, functionality the shades are the same not needed
+    platforms: done
+    entities: not done
+    functionality: the shades are the same not needed
   docs-troubleshooting: todo
   comment: |
     quite basic
@@ -113,19 +119,19 @@ rules:
   entity-category: done
   entity-device-class: todo
   comment: |
-    needs review
+    doesnt look like it
   entity-disabled-by-default: todo
   comment: |
-    should the ones listed as configuration be disbaled by default
+    should the ones listed as configuration be disbaled by default?
   entity-translations: todo
   comment: |
-    no hablo espanol or chinese or french or any language other than english, ill just use ai
+    no hablo espanol or chinese or french or any language other than english, ill just use ai to do it
   exception-translations: todo
   comment: |
     same reason as above
   icon-translations: exempt
   comment: |
-    not needed, since other than the cover which is already done theres just buttons
+    not needed, since other than the cover which is already done by default theres just buttons
   reconfiguration-flow: todo
   comment: |
     the ip address of a shade may change due to dhcp
@@ -139,7 +145,8 @@ rules:
   # Platinum
   async-dependency: todo
   comment: |
-    needs review
+    looks like it but considering that this integration gave me 5000 errors before ai- I mean I had to change 10 lines of codes, 
+    im sure theres something in the code that breaks this rule
   inject-websession: exempt
   comment: |
     i dont think it uses http, i gotta check though
