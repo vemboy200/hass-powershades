@@ -36,9 +36,16 @@ This integration can be installed via HACS as a custom repository:
 1. Go to **Settings** → **Devices & Services**
 2. Click **Add Integration**
 3. Search for "PowerShades"
-4. Enter your PowerShades controller's IP address and port
-4.5. Auto-discovery is broken so just manually enter the ip adress of you powershade(s) ill add a tutorial on how to get it when im not lazy
+4. Enter your PowerShades controller's IP address
+4.5. Auto-discovery is broken so just manually enter the ip adress of you powershade(s)
 5. Configure your blinds
+
+## How to get ip address
+Step 1: Open powershades app and go to your desired shade you want to add
+
+Step 2: Press enable configuration and say youre okay with it
+
+Step 3: Scroll all the way down and you should see its ip adress
 
 ## Usage
 
@@ -50,13 +57,6 @@ Once configured, your PowerShades will appear as covers in Home Assistant. You c
 - **Close**: Fully close the blinds  
 - **Set Position**: Set blinds to a specific percentage (0-100)
 - **Stop**: Stop blinds in their current position
-
-### Button Controls
-
-Additional buttons provide quick access to common operations:
-
-- **Preset Positions**: Quick access to favorite positions
-- **Group Operations**: Control multiple blinds simultaneously
 
 ## Requirements
 
