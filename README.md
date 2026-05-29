@@ -73,7 +73,7 @@ This integration supports PowerShades controllers that communicate via UDP proto
 
 If you encounter errors when installing via HACS:
 
-1. **Version Error**: Ensure the repository has a proper release tag (currently `v0.2.0`)
+1. **Version Error**: Ensure the repository has a proper release tag
 2. **Repository Not Found**: Verify the repository URL is correct and the repository is public
 3. **Download Failed**: Try refreshing HACS and clearing the cache
 
@@ -103,5 +103,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For issues and feature requests, please use the [GitHub Issues](https://github.com/vemboy200/hass-powershades/issues) page.
+
+Plans:
+- Fix the issues i listed in the issues page
+- add a quality scale.yaml file and bring this integration to bronze quality
+- merge with home assistant core and make this a core integration
+
 
 
