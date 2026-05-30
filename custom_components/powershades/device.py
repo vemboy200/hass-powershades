@@ -289,25 +289,25 @@ def _adjust_polling_frequency(self):
             if hasattr(self.coordinator, "_unsub_refresh") and self.coordinator._unsub_refresh:
                 self.coordinator._unsub_refresh()
                 self.coordinator._unsub_refresh = self.coordinator.async_setup()
-
-		async def _async_update_data(self):
-				"""Update device data."""
-				# Check if device is responding - be more lenient with timing
-				if time.time() - self._last_status_response > 180:  # No response for 3 minutes
-						if self._available:
-								_LOGGER.warning(
-										"Device %s not responding, marking as unavailable", self.ip_address
-								)
-								self._available = False
-								self._notify_entities()
-				else:
-						if not self._available:
-								_LOGGER.info(
-										"Device %s responding again, marking as available", self.ip_address
-								)
-								self._available = True
-								self._notify_entities()
 		
+			async def _async_update_data(self):
+					"""Update device data."""
+					# Check if device is responding - be more lenient with timing
+					if time.time() - self._last_status_response > 180:  # No response for 3 minutes
+							if self._available:
+									_LOGGER.warning(
+											"Device %s not responding, marking as unavailable", self.ip_address
+									)
+									self._available = False
+									self._notify_entities()
+					else:
+							if not self._available:
+									_LOGGER.info(
+											"Device %s responding again, marking as available", self.ip_address
+									)
+									self._available = True
+									self._notify_entities()
+			
 				# Request status with retry logic
 				_LOGGER.debug("Device %s: Starting periodic status request", self.ip_address)
 				await self.async_request_status_with_retry()
