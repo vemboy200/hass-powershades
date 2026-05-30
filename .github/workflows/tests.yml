@@ -2,9 +2,11 @@ name: Code Quality Checks
 
 on:
   push:
-    branches: [ betta ]
+    branches:
+      - '**'   # <-- Wrapping it in quotes fixes the syntax crash!
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   lint_and_format:
