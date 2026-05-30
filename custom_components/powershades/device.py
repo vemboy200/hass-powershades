@@ -232,33 +232,33 @@ class PowerShadesDevice:
             except Exception as e:
                 _LOGGER.error("Error in entity callback: %s", e)
 
-    def _adjust_polling_frequency(self):
-        """Adjust polling frequency based on device state."""
-        if self._available and self._position is None:
-            # Device available but position unknown - poll more frequently
-            if self.coordinator.update_interval.total_seconds() > 5:
-                _LOGGER.debug(
-                    "Device %s position unknown, increasing polling frequency to 5s",
-                    self.ip_address,
-                )
-                self.coordinator.update_interval = timedelta(seconds=5)
-        elif self._available and getattr(self, "_is_moving", False):
-            # Increase poll frequency when the shade is moving
-            if self.coordinator.update_interval.total_seconds() > 2:
-                 _LOGGER.debug(
-                     "Device %s position is moving, increasing polling frequency to 2s",
-                     self.ip_address,
-                 )
-                 self.coordinator.update_interval = timedelta(seconds=2)
-          elif self._available and self._position is not None:
-              # Device available and position known - normal polling
-              if self.coordinator.update_interval.total_seconds() < 10:
-                  _LOGGER.debug(
-                      "Device %s position known, restoring normal polling",
-                      self.ip_address,
-                  )
-                  self.coordinator.update_interval = timedelta(seconds=10)
-        
+   def _adjust_polling_frequency(self):
+      """Adjust polling frequency based on device state."""
+      if self._available and self._position is None:
+         # Device available but position unknown - poll more frequently
+         if self.coordinator.update_interval.total_seconds() > 5:
+            _LOGGER.debug(
+                  "Device %s position unknown, increasing polling frequency to 5s",
+                  self.ip_address,
+            )
+            self.coordinator.update_interval = timedelta(seconds=5)
+      elif self._available and getattr(self, "_is_moving", False):
+      # Increase poll frequency when the shade is moving
+         if self.coordinator.update_interval.total_seconds() > 2:
+            _LOGGER.debug(
+            "Device %s position is moving, increasing polling frequency to 2s",
+            self.ip_address,
+            )
+            self.coordinator.update_interval = timedelta(seconds=2)
+      elif self._available and self._position is not None:
+      # Device available and position known - normal polling
+      if self.coordinator.update_interval.total_seconds() < 10:
+         _LOGGER.debug(
+         "Device %s position known, restoring normal polling",
+         self.ip_address,
+            )
+            self.coordinator.update_interval = timedelta(seconds=10)
+
 
     async def _async_update_data(self):
         """Update device data."""
