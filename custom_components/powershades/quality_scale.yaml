@@ -22,11 +22,9 @@ rules:
   docs-actions: todo
   comment: |
     will remove actions because its not needed
-  docs-high-level-description: todo
-  comment: |
-    describe what powershades is as a company
+  docs-high-level-description: done
   docs-installation-instructions: done
-  docs-removal-instructions: todo
+  docs-removal-instructions: done
   entity-event-setup: done
   comment: |
     looks complete
@@ -89,30 +87,19 @@ rules:
   discovery: todo
   comment: |
     its broken
-  docs-data-update: todo
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
   comment: |
-    needs to explain that udp is push based and  polling stuff if thats a thing
-  docs-examples: todo
-  comment: |
-    add automations that i use to control my shades
-  docs-known-limitations: todo
-  comment: |
-    1. no name given out, only serial number (you have to manually name it) 
-    2. Despite udp being push based, its not always updating the data, and requires polling
+    1. no name given out, done serial number (you have to manually name it) 
   docs-supported-devices: todo
   comment: |
-    Poe shades are tested, needs to be listed, the hub for the rf hub is unknown however
-  docs-supported-functions: todo
+    Poe shades are tested, the rf hub for the rf shades is unknown however
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
   comment: |
-    platforms: done
-    entities: not done
-    functionality: the shades are the same not needed
-  docs-troubleshooting: todo
-  comment: |
-    quite basic
-  docs-use-cases: todo
-  comment: |
-    talk about siri using homekit bridge, or tablets used to control shades, or buttons to control shades
+    talk about siri using homekit bridge, or tablets used to control shades
   dynamic-devices: exempt
   comment: |
     poe only has one device per entry idk about the rf hub though
@@ -149,7 +136,7 @@ rules:
     im sure theres something in the code that breaks this rule
   inject-websession: exempt
   comment: |
-    i dont think it uses http, i gotta check though
+    uses udp not http(s)
   strict-typing: todo
   comment: |
     im not implemting this in some time tbfr
