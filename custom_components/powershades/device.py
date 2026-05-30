@@ -236,6 +236,8 @@ class PowerShadesDevice:
 
     def _adjust_polling_frequency(self):
         """Adjust polling frequency based on device state."""
+        is_moving = getattr(self, "_is_opening", False) or getattr(self, "_is_closing", False)
+        
         if self._available and self._position is None:
             # Device available but position unknown - poll more frequently
             if self.coordinator.update_interval.total_seconds() > 5:
