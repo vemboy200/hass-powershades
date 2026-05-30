@@ -266,10 +266,10 @@ class PowerShadesDevice:
         try:
             # 1. Your existing logic to handle incoming UDP response packets
             # (Whether from an active poll or an instant push from an HA action)
-            data = await self._fetch_udp_data() 
-            
+            data = await self._fetch_udp_data()
+
             new_position = data.get("position")
-            current_state = data.get("state") # e.g., "opening", "closing", "stopped"
+            current_state = data.get("state")  # e.g., "opening", "closing", "stopped"
 
             # 2. Apply combined Idea 1 & 2 logic
             if new_position in (0, 100):
