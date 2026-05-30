@@ -648,8 +648,8 @@ def _build_set_position_packet(
     return packet
 
 
-        class UDPListener:
-        """UDP listener for PowerShades device."""
+    class UDPListener:
+    """UDP listener for PowerShades device."""
         
         def __init__(self, device: PowerShadesDevice):
             """Initialize UDP listener."""
