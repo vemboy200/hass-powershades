@@ -289,54 +289,51 @@ def _adjust_polling_frequency(self):
             if hasattr(self.coordinator, "_unsub_refresh") and self.coordinator._unsub_refresh:
                 self.coordinator._unsub_refresh()
                 self.coordinator._unsub_refresh = self.coordinator.async_setup()
-		
-			async def _async_update_data(self):
-					"""Update device data."""
-					# Check if device is responding - be more lenient with timing
-					if time.time() - self._last_status_response > 180:  # No response for 3 minutes
-							if self._available:
-									_LOGGER.warning(
-											"Device %s not responding, marking as unavailable", self.ip_address
-									)
-									self._available = False
-									self._notify_entities()
-					else:
-							if not self._available:
-									_LOGGER.info(
-											"Device %s responding again, marking as available", self.ip_address
-									)
-									self._available = True
-									self._notify_entities()
-			
-				# Request status with retry logic
-				_LOGGER.debug("Device %s: Starting periodic status request", self.ip_address)
-				await self.async_request_status_with_retry()
-		
-				# If device is available but position is unknown, be more aggressive
-				if self._available and self._position is None:
-						_LOGGER.debug(
-								"Device %s available but position unknown, requesting status again",
-								self.ip_address,
-						)
-						# Request status again with more retries for unknown position
-						await self.async_request_status_with_retry(max_retries=3)
-				elif self._available and self._position is not None:
-						_LOGGER.debug(
-								"Device %s: Current position is %d%%, continuing normal polling",
-								self.ip_address,
-								self._position,
-						)
-		
-				# Clear the indentation error by returning the current parsed states dictionary
-				return {
-						"position": self._position,
-						"available": self._available,
-				}
-						"position": self._position,
-						"battery_voltage": self._battery_voltage,
-						"battery_percentage": self.battery_percentage,
-						"available": self._available,
-				}
+
+    async def _async_update_data(self):
+        """Update device data."""
+        # Check if device is responding - be more lenient with timing
+        if time.time() - self._last_status_response > 180:  # No response for 3 minutes
+            if self._available:
+                _LOGGER.warning(
+                    "Device %s not responding, marking as unavailable", self.ip_address
+                )
+                self._available = False
+                self._notify_entities()
+        else:
+            if not self._available:
+                _LOGGER.info(
+                    "Device %s responding again, marking as available", self.ip_address
+                )
+                self._available = True
+                self._notify_entities()
+
+        # Request status with retry logic
+        _LOGGER.debug("Device %s: Starting periodic status request", self.ip_address)
+        await self.async_request_status_with_retry()
+
+        # If device is available but position is unknown, be more aggressive
+        if self._available and self._position is None:
+            _LOGGER.debug(
+                "Device %s available but position unknown, requesting status again",
+                self.ip_address,
+            )
+            # Request status again with more retries for unknown position
+            await self.async_request_status_with_retry(max_retries=3)
+        elif self._available and self._position is not None:
+            _LOGGER.debug(
+                "Device %s: Current position is %d%%, continuing normal polling",
+                self.ip_address,
+                self._position,
+            )
+
+# Clear the indentation error by returning the complete parsed states dictionary
+        return {
+            "position": self._position,
+            "battery_voltage": self._battery_voltage,
+            "battery_percentage": self._battery_percentage,
+            "available": self._available,
+        }
 
     async def async_request_status_with_retry(self, max_retries: int = 2):
         """Request status from device with retry logic."""
