@@ -1,5 +1,7 @@
 # PowerShades Home Assistant Integration
 
+Theres a lot spelling errors in the readme ill fix them later
+
 The Home Assistant Powershades integration allows to control your power over ethernet (PoE) [Powershades](https://powershades.com) shades. This integration is only tested with PoE Powershades, so support with the RF hub may be limited or nonexistent.
 
 If you have RF shades it is recommended you buy a [Bond Bridge](https://bondhome.io/) and connect your RF shades using that, then connect it to Home Assistant using the [built in integration](https://www.home-assistant.io/integrations/bond/). If yout already have Powershade's RF Hub, please open an issue and report what the results are trying to connect the hub to Home Assistant using this integration.
