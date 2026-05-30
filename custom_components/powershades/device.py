@@ -232,63 +232,24 @@ class PowerShadesDevice:
             except Exception as e:
                 _LOGGER.error("Error in entity callback: %s", e)
 
-async def _async_update_data(self):
-        """Fetch and parse data from the PowerShades motor."""
-        try:
-            # 1. Your existing logic to handle incoming UDP response packets
-            # (Whether from an active poll or an instant push from an HA action)
-            data = await self._fetch_udp_data() 
-            
-            new_position = data.get("position")
-            current_state = data.get("state") # e.g., "opening", "closing", "stopped"
-
-            # 2. Apply combined Idea 1 & 2 logic
-            if new_position in (0, 100):
-                # Idea 1 Guard: If at physical limits, it cannot be moving
-                self._is_moving = False
-            elif current_state in ("opening", "closing"):
-                # Idea 2 Accelerator: Pushed state or poll shows active movement
-                self._is_moving = True
-            else:
-                # Idle or stopped at a partial position
-                self._is_moving = False
-
-            # 3. Shift gears immediately based on the updated state
-            self._adjust_polling_frequency()
-
-            return data
-
-        except Exception as err:
-            _LOGGER.error("Error communicating with PowerShades motor: %s", err)
-            raise UpdateFailed(err)
-
-
-def _adjust_polling_frequency(self):
-        """Adjust polling frequency dynamically based on device state."""
-        if self._available and getattr(self, "_is_moving", False):
-            # Gear 3: Active motion - Poll every 2 seconds for a smooth UI slider
-            target_seconds = 2
-        elif self._available and self._position is None:
-            # Gear 2: Unknown state recovery - Poll every 5 seconds
-            target_seconds = 5
-        else:
-            # Gear 1: Idle standby - Poll every 10 seconds to detect external changes
-            target_seconds = 10
-
-        # Only change the interval if it's different from the current setting
-        if self.coordinator.update_interval.total_seconds() != target_seconds:
-            _LOGGER.debug(
-                "Changing dynamic poll interval for %s to %ss", 
-                self.ip_address, 
-                target_seconds
-            )
-            self.coordinator.update_interval = timedelta(seconds=target_seconds)
-            
-            # This forces Home Assistant to restart the background timer wheel
-            # with the new interval duration immediately.
-            if hasattr(self.coordinator, "_unsub_refresh") and self.coordinator._unsub_refresh:
-                self.coordinator._unsub_refresh()
-                self.coordinator._unsub_refresh = self.coordinator.async_setup()
+    def _adjust_polling_frequency(self):
+        """Adjust polling frequency based on device state."""
+        if self._available and self._position is None:
+            # Device available but position unknown - poll more frequently
+            if self.coordinator.update_interval.total_seconds() > 5:
+                _LOGGER.debug(
+                    "Device %s position unknown, increasing polling frequency",
+                    self.ip_address,
+                )
+                self.coordinator.update_interval = timedelta(seconds=5)
+        elif self._available and self._position is not None:
+            # Device available and position known - normal polling
+            if self.coordinator.update_interval.total_seconds() < 10:
+                _LOGGER.debug(
+                    "Device %s position known, restoring normal polling",
+                    self.ip_address,
+                )
+                self.coordinator.update_interval = timedelta(seconds=10)
 
     async def _async_update_data(self):
         """Update device data."""
@@ -327,11 +288,10 @@ def _adjust_polling_frequency(self):
                 self._position,
             )
 
-# Clear the indentation error by returning the complete parsed states dictionary
         return {
             "position": self._position,
             "battery_voltage": self._battery_voltage,
-            "battery_percentage": self._battery_percentage,
+            "battery_percentage": self.battery_percentage,
             "available": self._available,
         }
 
