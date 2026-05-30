@@ -290,7 +290,7 @@ def _adjust_polling_frequency(self):
                 self.coordinator._unsub_refresh()
                 self.coordinator._unsub_refresh = self.coordinator.async_setup()
 
-    async def _async_update_data(self):
+async def _async_update_data(self):
         """Update device data."""
         # Check if device is responding - be more lenient with timing
         if time.time() - self._last_status_response > 180:  # No response for 3 minutes
@@ -327,7 +327,11 @@ def _adjust_polling_frequency(self):
                 self._position,
             )
 
+        # Clear the indentation error by returning the current parsed states dictionary
         return {
+            "position": self._position,
+            "available": self._available,
+        }
             "position": self._position,
             "battery_voltage": self._battery_voltage,
             "battery_percentage": self.battery_percentage,
