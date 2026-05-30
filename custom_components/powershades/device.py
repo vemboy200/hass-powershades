@@ -250,14 +250,14 @@ class PowerShadesDevice:
                      self.ip_address,
                  )
                  self.coordinator.update_interval = timedelta(seconds=2)
-         elif self._available and self._position is not None:
-             # Device available and position known - normal polling
-             if self.coordinator.update_interval.total_seconds() < 10:
-                 _LOGGER.debug(
-                     "Device %s position known, restoring normal polling",
-                     self.ip_address,
-                 )
-                 self.coordinator.update_interval = timedelta(seconds=10)
+          elif self._available and self._position is not None:
+              # Device available and position known - normal polling
+              if self.coordinator.update_interval.total_seconds() < 10:
+                  _LOGGER.debug(
+                      "Device %s position known, restoring normal polling",
+                      self.ip_address,
+                  )
+                  self.coordinator.update_interval = timedelta(seconds=10)
         
 
     async def _async_update_data(self):
