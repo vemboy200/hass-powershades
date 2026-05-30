@@ -648,140 +648,140 @@ def _build_set_position_packet(
     return packet
 
 
-    class UDPListener:
-    """UDP listener for PowerShades device."""
-    
-    def __init__(self, device: PowerShadesDevice):
-        """Initialize UDP listener."""
-        self.device = device
-        self.socket: Optional[socket.socket] = None
-        self.running = False
-    
-    def run(self):
-        """Run the UDP listener."""
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.settimeout(1.0)
-    
-        try:
-            # Bind to any available port (don't try to bind to port 42)
-            self.socket.bind(("", 0))
-    
-            self.running = True
-            listener_port = self.socket.getsockname()[1]
-            _LOGGER.info("UDP listener started on port %d", listener_port)
-    
-            while self.running:
-                try:
-                    data, addr = self.socket.recvfrom(256)
-                    self._handle_status_response(data, addr)
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if self.running:
-                        _LOGGER.error("Error in UDP listener: %s", e)
-    
-        except Exception as e:
-            _LOGGER.error("Failed to start UDP listener: %s", e)
-        finally:
+        class UDPListener:
+        """UDP listener for PowerShades device."""
+        
+        def __init__(self, device: PowerShadesDevice):
+            """Initialize UDP listener."""
+            self.device = device
+            self.socket: Optional[socket.socket] = None
+            self.running = False
+        
+        def run(self):
+            """Run the UDP listener."""
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.settimeout(1.0)
+        
+            try:
+                # Bind to any available port (don't try to bind to port 42)
+                self.socket.bind(("", 0))
+        
+                self.running = True
+                listener_port = self.socket.getsockname()[1]
+                _LOGGER.info("UDP listener started on port %d", listener_port)
+        
+                while self.running:
+                    try:
+                        data, addr = self.socket.recvfrom(256)
+                        self._handle_status_response(data, addr)
+                    except socket.timeout:
+                        continue
+                    except Exception as e:
+                        if self.running:
+                            _LOGGER.error("Error in UDP listener: %s", e)
+        
+            except Exception as e:
+                _LOGGER.error("Failed to start UDP listener: %s", e)
+            finally:
+                if self.socket:
+                    self.socket.close()
+        
+        def stop(self):
+            """Stop the UDP listener."""
+            self.running = False
             if self.socket:
                 self.socket.close()
-    
-    def stop(self):
-        """Stop the UDP listener."""
-        self.running = False
-        if self.socket:
-            self.socket.close()
-    
-    def send_command(self, packet: bytes):
-        """Send UDP command to device."""
-        if self.socket and self.running:
+        
+        def send_command(self, packet: bytes):
+            """Send UDP command to device."""
+            if self.socket and self.running:
+                try:
+                    self.socket.sendto(packet, (self.device.ip_address, UDP_PORT))
+                    _LOGGER.debug(
+                        "Sent packet to %s:%d: %s",
+                        self.device.ip_address,
+                        UDP_PORT,
+                        packet.hex(),
+                    )
+                except Exception as e:
+                    _LOGGER.error("Failed to send packet: %s", e)
+        
+        def _handle_status_response(self, data: bytes, addr: tuple) -> None:
+            """Handle status response from device."""
             try:
-                self.socket.sendto(packet, (self.device.ip_address, UDP_PORT))
                 _LOGGER.debug(
-                    "Sent packet to %s:%d: %s",
-                    self.device.ip_address,
-                    UDP_PORT,
-                    packet.hex(),
+                    "Received UDP packet from %s: length=%d, data=%s",
+                    addr[0],
+                    len(data),
+                    data.hex(),
                 )
+        
+                if len(data) < 8:  # Minimum packet size
+                    _LOGGER.debug("Packet too short: %d bytes", len(data))
+                    return
+        
+                # Parse header: Length(2) + CRC(2) + Op(1) + Sequence(1) + Channel(1) + Reserved(1)
+                length, crc, op, sequence, channel, reserved = struct.unpack(
+                    "<HHBBBB", data[:8]
+                )
+        
+                _LOGGER.debug(
+                    "Packet header: length=%d, crc=0x%04X, op=0x%02X, seq=%d, channel=%d",
+                    length,
+                    crc,
+                    op,
+                    sequence,
+                    channel,
+                )
+        
+                if op != OP_GET_STATUS:
+                    _LOGGER.debug("Not a status response, op=0x%02X", op)
+                    return  # Not a status response
+        
+                if len(data) < 8 + length:  # Check if we have enough data for payload
+                    _LOGGER.debug(
+                        "Packet too short for payload: %d < %d", len(data), 8 + length
+                    )
+                    return
+        
+                # Parse payload according to specification
+                payload = data[8 : 8 + length]
+                _LOGGER.debug("Payload length: %d bytes", len(payload))
+        
+                # Handle different payload sizes - device seems to send 40 bytes
+                if len(payload) >= 30:  # 30-byte or longer status packet
+                    # Parse the first 30 bytes as the standard status fields
+                    (
+                        current_percent,
+                        current_tilt,
+                        current_memory,
+                        battery_voltage,
+                        time_val,
+                        cycles,
+                        stalls,
+                        temperature,
+                        raw_percent,
+                        raw_tilt,
+                    ) = struct.unpack("<hhHHIIIhII", payload[:30])
+        
+                    _LOGGER.debug(
+                        "Status response: percent=%d, tilt=%d, battery=%d mV, "
+                        "cycles=%d, stalls=%d",
+                        current_percent,
+                        current_tilt,
+                        battery_voltage,
+                        cycles,
+                        stalls,
+                    )
+        
+                    # Update device state using the correct method
+                    self.device.update_status(current_percent, battery_voltage)
+                else:
+                    _LOGGER.debug(
+                        "Payload too short for status packet: %d < 30", len(payload)
+                    )
+        
             except Exception as e:
-                _LOGGER.error("Failed to send packet: %s", e)
-    
-    def _handle_status_response(self, data: bytes, addr: tuple) -> None:
-        """Handle status response from device."""
-        try:
-            _LOGGER.debug(
-                "Received UDP packet from %s: length=%d, data=%s",
-                addr[0],
-                len(data),
-                data.hex(),
-            )
-    
-            if len(data) < 8:  # Minimum packet size
-                _LOGGER.debug("Packet too short: %d bytes", len(data))
-                return
-    
-            # Parse header: Length(2) + CRC(2) + Op(1) + Sequence(1) + Channel(1) + Reserved(1)
-            length, crc, op, sequence, channel, reserved = struct.unpack(
-                "<HHBBBB", data[:8]
-            )
-    
-            _LOGGER.debug(
-                "Packet header: length=%d, crc=0x%04X, op=0x%02X, seq=%d, channel=%d",
-                length,
-                crc,
-                op,
-                sequence,
-                channel,
-            )
-    
-            if op != OP_GET_STATUS:
-                _LOGGER.debug("Not a status response, op=0x%02X", op)
-                return  # Not a status response
-    
-            if len(data) < 8 + length:  # Check if we have enough data for payload
-                _LOGGER.debug(
-                    "Packet too short for payload: %d < %d", len(data), 8 + length
-                )
-                return
-    
-            # Parse payload according to specification
-            payload = data[8 : 8 + length]
-            _LOGGER.debug("Payload length: %d bytes", len(payload))
-    
-            # Handle different payload sizes - device seems to send 40 bytes
-            if len(payload) >= 30:  # 30-byte or longer status packet
-                # Parse the first 30 bytes as the standard status fields
-                (
-                    current_percent,
-                    current_tilt,
-                    current_memory,
-                    battery_voltage,
-                    time_val,
-                    cycles,
-                    stalls,
-                    temperature,
-                    raw_percent,
-                    raw_tilt,
-                ) = struct.unpack("<hhHHIIIhII", payload[:30])
-    
-                _LOGGER.debug(
-                    "Status response: percent=%d, tilt=%d, battery=%d mV, "
-                    "cycles=%d, stalls=%d",
-                    current_percent,
-                    current_tilt,
-                    battery_voltage,
-                    cycles,
-                    stalls,
-                )
-    
-                # Update device state using the correct method
-                self.device.update_status(current_percent, battery_voltage)
-            else:
-                _LOGGER.debug(
-                    "Payload too short for status packet: %d < 30", len(payload)
-                )
-    
-        except Exception as e:
-            _LOGGER.error("Error parsing status response: %s", e)
-            _LOGGER.debug("Raw data: %s", data.hex())
+                _LOGGER.error("Error parsing status response: %s", e)
+                _LOGGER.debug("Raw data: %s", data.hex())
