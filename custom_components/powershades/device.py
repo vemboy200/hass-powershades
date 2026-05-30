@@ -260,6 +260,36 @@ class PowerShadesDevice:
                 self.coordinator.update_interval = timedelta(seconds=10)
 
     async def _async_update_data(self):
+        """Fetch and parse data from the PowerShades motor."""
+        try:
+            # 1. Your existing logic to handle incoming UDP response packets
+            # (Whether from an active poll or an instant push from an HA action)
+            data = await self._fetch_udp_data() 
+            
+            new_position = data.get("position")
+            current_state = data.get("state") # e.g., "opening", "closing", "stopped"
+
+            # 2. Apply combined Idea 1 & 2 logic
+            if new_position in (0, 100):
+                # Idea 1 Guard: If at physical limits, it cannot be moving
+                self._is_moving = False
+            elif current_state in ("opening", "closing"):
+                # Idea 2 Accelerator: Pushed state or poll shows active movement
+                self._is_moving = True
+            else:
+                # Idle or stopped at a partial position
+                self._is_moving = False
+
+            # 3. Shift gears immediately based on the updated state
+            self._adjust_polling_frequency()
+
+            return data
+
+        except Exception as err:
+            _LOGGER.error("Error communicating with PowerShades motor: %s", err)
+            raise UpdateFailed(err)
+
+    async def _async_update_data(self):
         """Update device data."""
         # Check if device is responding - be more lenient with timing
         if time.time() - self._last_status_response > 180:  # No response for 3 minutes
