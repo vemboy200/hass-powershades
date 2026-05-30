@@ -290,7 +290,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         self.device.set_movement_state(True, False)
 
         await self.device.async_set_position(100)
-        self.async_write_ha_state()
+            self.async_write_ha_state()
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
