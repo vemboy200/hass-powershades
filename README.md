@@ -1,15 +1,13 @@
 # PowerShades Home Assistant Integration
 
-Theres a lot spelling errors in the readme ill fix them later
-
 The Home Assistant Powershades integration allows to control your power over ethernet (PoE) [Powershades](https://powershades.com) shades. This integration is only tested with PoE Powershades, so support with the RF hub may be limited or nonexistent.
 
-If you have RF shades it is recommended you buy a [Bond Bridge](https://bondhome.io/) and connect your RF shades using that, then connect it to Home Assistant using the [built in integration](https://www.home-assistant.io/integrations/bond/). If yout already have Powershade's RF Hub, please open an issue and report what the results are trying to connect the hub to Home Assistant using this integration.
+If you have RF shades it is recommended you buy a [Bond Bridge](https://bondhome.io/) and connect your RF shades using that, then connect it to Home Assistant using the [built in integration](https://www.home-assistant.io/integrations/bond/). If you already have Powershade's RF Hub, please open an issue and report what the results are trying to connect the hub to Home Assistant using this integration.
 
 ## How you can use this integration
- This intgeration can be used to control your Powershades shades, you can have it open in the morning to get you out of the bed, or close them at sunset for extra privacy. 
+This intgeration can be used to control your Powershades shades, you can have it open in the morning to get you out of the bed, or close them at sunset for extra privacy. 
  
- PoE Powershades do not come with a remote, so controlling them without a smart device is difficult. To fix this you can use a smart button (such as a Zigbee or Z-Wave button) with an automation to control your shade. This be convient to you or others, including guests controlling your shades without having to open your smart device.
+PoE Powershades do not come with a remote, so controlling them without a smart device is difficult. To fix this you can use a smart button (such as a Zigbee or Z-Wave button) with an automation to control your shade. This may be convient to you or others, including guests controlling your shades without having to open a smart device.
 
  ## Prerequisites
 
@@ -28,7 +26,7 @@ Once you have aquired the IP address of your shade, select manual entry, and put
 
 ## Installation
 
-### HACS Installation
+### HACS Installation (recommended)
 
 This integration can be installed via HACS as a custom repository:
 
@@ -50,7 +48,8 @@ This integration can be installed via HACS as a custom repository:
 ## Supported Devices
 Any PoE Powershade shade with UDP communication enabled on the same local network as Home Assistant
 
-⚠️ Note: The RF Powershades bridge is currently untested and may be unsupported. For RF Powershades, utilizing a [Bond Bridge](https://bondhome.io/) is the recommended approach.
+⚠️ Note: The RF Powershades bridge is currently untested and may be unsupported. For RF Powershades, please use a [Bond Bridge](https://bondhome.io/).
+
 ## Supported functionality 
 
 ### Cover entity (listed as controls)
@@ -75,7 +74,7 @@ The Shade will instantly report to home Assistant that a command has been execut
 ## Data Updates
 While the UDP protocol allows for push updates it only happens when Home Assistant controls the device. When an external source (ex: Powershades App or Control4) controls the device, the only way to get the device's status is by polling. So currently Home Assistant polls the shade every 10 seconds if the shade's status is known or every 5 seconds if the status is unknown. This will change with it being 10 seconds if inactive, 5 if unknown and 2 if the shade is moving.
 
-All communication is local and the data does not leave your house, which is kind of weird considering that in the offical Powershades app all Data goes through their cloud. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
+All communication is local and the data does not leave your house, which is kind of weird considering that in the offical Powershades app, all data goes through their cloud. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
 
 ## Known limations 
 Other than the [issues](https://github.com/vemboy200/hass-powershades/issues) listed on this repo, there are many limiations with the UDP communication
@@ -95,7 +94,8 @@ Other than the [issues](https://github.com/vemboy200/hass-powershades/issues) li
 - This means that Home Assistant could not communicate to the shade, make sure home assistant can access port 42 on your shade, and that UDP broadcasts can be routed between different subnets if needed.
 - It could also mean that your shade is not connected to your local network
 ### Cover entity shows as unknown
-- This most likely occured becuase you selected the bad IP "discovered" by the broken auto discovery, remove it.
+- This most likely occured because you selected the bad IP "discovered" by the broken auto discovery, remove it.
+- If you're getting unknown despite having a valid IP address, please open an issue with your debug log if possible
 ### Cover shows its still opening or closing despite it not moving
 - [Issue #2](https://github.com/vemboy200/hass-powershades/issues/2)
 
@@ -112,10 +112,10 @@ Then trigger the error, and download the logs from Settings > System > Logs > Do
 If you stop the debuging log from the Home Assistant Companion App it should automatically download
 
 ## Report Issues you find with the integration
--  Get the debug log of what cuased the error (if appicable)
+-  Get the debug log and screenshot/screen recording of what caused the error (if applicable)
 -  Raise your Issue [here](https://github.com/vemboy200/hass-powershades/issues)
--  Descirbe the issue
--  Put the debug log if neccesary
+-  Describe the issue
+-  Put the debug log or screenshot/recording if necessary
 
 ## Automation Examples
 Here are some automations I use with this integration
@@ -230,7 +230,7 @@ mode: single
 ```
 ## Removing this integration
 
-Removing this integration is the same  for most hacs integrations
+Removing this integration is the same compared to most hacs integrations
 
 - Go to Settings > Devices & services and select the integration card.
 - From the list of devices, select the Powershades integration.
@@ -242,7 +242,7 @@ Removing this integration is the same  for most hacs integrations
 - Go to thecustom components folder
 - Delete the powershades folder
 
-- Then restart Home Assistant to cleat Cache
+- Then restart Home Assistant to clear the cache
 
 ## Contributing
 
@@ -260,7 +260,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - PowerShades for their UDP protocol documentation
 - Home Assistant community for the integration framework
-- [@dstocking](https://github.com/dstocking) for making the original form of this integration
+- [@dstocking](https://github.com/dstocking) for making the original repo of this integration that I forked from
 
 ## Support
 
@@ -269,6 +269,6 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 This integration is maintained by [@vemboy200](https://github.com/vemboy200) with the support of AI
 
 ## Plans
-- Fix the issues i listed in the issues page
-- add a quality scale.yaml file and bring this integration to bronze quality
-- merge with home assistant core and make this a core integration
+- Fix the issues I listed in the issues page
+- Add a quality scale.yaml file and bring this integration to bronze quality
+- Merge with home assistant core and make this a core integration
