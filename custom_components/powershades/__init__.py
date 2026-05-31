@@ -1,13 +1,22 @@
 """The PowerShades integration."""
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import ConfigType  # Added this missing import
 
 from .const import DOMAIN
 from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[str] = ["cover", "button"]  # Add button platform
 
+# Tell Home Assistant that this integration can only be set up via config entries
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the PowerShades component."""
+    return True
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the PowerShades component."""
