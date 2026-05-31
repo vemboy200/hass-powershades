@@ -27,7 +27,7 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial user setup step by going straight to manual entry."""
         return await self.async_step_manual_entry(user_input)
 
-    async def async_step_manual_entry(self, user_input=None) -> FlowResult:
+async def async_step_manual_entry(self, user_input=None) -> FlowResult:
         """Handle manual IP entry and query the device directly for verification."""
         errors = {}
 
@@ -42,7 +42,6 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     device_info = None
 
-                    # Query the shade directly via UDP to retrieve its hardware serial number
                     _LOGGER.info(
                         "Connecting directly to PowerShades device at %s to verify connectivity",
                         ip_address,
@@ -61,58 +60,36 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             parsed = parse_serial_reply(data)
                             if parsed and parsed["ip"] == ip_address:
                                 device_info = parsed
-                                _LOGGER.info(
-                                    "Successfully retrieved serial from %s: serial=%s",
-                                    ip_address,
-                                    parsed["serial"],
-                                )
                         except socket.timeout:
-                            _LOGGER.warning(
-                                "No response from %s on port 42; configuring with fallback ID",
-                                ip_address,
-                            )
+                            _LOGGER.warning("No response from %s on port 42", ip_address)
                         finally:
                             sock.close()
                     except Exception as e:
-                        _LOGGER.error(
-                            "Error communicating with device at %s: %s",
-                            ip_address,
-                            e,
-                        )
+                        _LOGGER.error("Error communicating with device at %s: %s", ip_address, e)
 
-                    # Setup unique ID constraints
-                    if device_info:
+                    # Quality Scale Guard: Reject entry creation if the socket connection dropped/timed out
+                    if device_info is None:
+                        errors["base"] = "cannot_connect"
+                    else:
                         unique_id = str(device_info["serial"])
                         await self.async_set_unique_id(unique_id)
                         self._abort_if_unique_id_configured()
-                    else:
-                        unique_id = f"manual_{ip_address.replace('.', '_')}"
-                        await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured()
 
-                    # Get user-configured name or fallback to IP title
-                    device_name = await async_get_device_name(self.hass, ip_address)
-                    if device_name:
-                        title = f"PowerShade {device_name}"
-                    else:
-                        title = f"PowerShade {ip_address}"
+                        device_name = await async_get_device_name(self.hass, ip_address)
+                        title = f"PowerShade {device_name}" if device_name else f"PowerShade {ip_address}"
 
-                    return self.async_create_entry(
-                        title=title,
-                        data={
-                            "ip": ip_address,
-                            "serial": device_info["serial"] if device_info else None,
-                            "name": device_name,
-                        },
-                    )
+                        return self.async_create_entry(
+                            title=title,
+                            data={
+                                "ip": ip_address,
+                                "serial": device_info["serial"],
+                                "name": device_name,
+                            },
+                        )
 
         return self.async_show_form(
             step_id="manual_entry",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("ip"): str,
-                }
-            ),
+            data_schema=vol.Schema({vol.Required("ip"): str}),
             errors=errors,
         )
 
@@ -129,6 +106,23 @@ class PowerShadesOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         """Initialize options flow."""
         self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({}),
+        )
+        
+class PowerShadesOptionsFlow(config_entries.OptionsFlow):
+    """Handle PowerShades options."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        super().__init__(config_entry)  # Pass config_entry directly to the parent class
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
