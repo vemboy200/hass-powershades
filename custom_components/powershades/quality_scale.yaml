@@ -12,13 +12,11 @@ rules:
   common-modules: todo
   comment: |
     needs entity.py i think
-  config-flow-test-coverage: todo
-  comment: |
-      auto discovery needs to be fixed
+  config-flow-test-coverage: done
   config-flow: done
   dependency-transparency: todo
   comment: |
-    no dependencies, but i probably need some
+    well i have the network dependency now
   docs-actions: todo
   comment: |
     will remove actions because its not needed
@@ -37,18 +35,11 @@ rules:
   runtime-data: todo
   comment: |
     doesnt exist
-  test-before-configure: todo
-  comment: |
-    if theres a wrong ip adress or the integration cant connect because the port is blocked 
-    a warning is given in the logs but then the config entry is created
-  test-before-setup: todo
-  comment: |
-     if theres a wrong ip adress or the integration cant connect because the port is blocked no error is given i presume
-     gonna be difficult to test since my shades are ona static ip and im sure my parents will freak out if i change it
-     because it might break stuff like control4
+  test-before-configure: done
+  test-before-setup: done
   unique-config-entry: done
   comment: |
-    works but could look better
+    uses failed to set up message instead of oh yeah this is the same device but works!
 
   # Silver
   action-exceptions: todo
@@ -57,44 +48,40 @@ rules:
   config-entry-unloading: done
   docs-configuration-parameters: done
   docs-installation-parameters: done
-  comment: |
-    its there could be better though
   entity-unavailable: todo
   comment: |
-    gets marked as unknown or last state
+    you know what if the cable if plugged out or ip changes while ha is running?
   integration-owner: done
   log-when-unavailable: todo
   comment: |
-    well the integration doesnt even mark as unavaible
+    theres warnings and stuff about failed attempts to communicate but entity isnt marked as avaible, it also refers to the ip address, should probably reffer to the entry
   parallel-updates: todo
   comment: |
     doesnt exist
   reauthentication-flow: todo
   comment: |
-    doesnt exist i think
+    doesnt exist i think, have it happen when bad ip
   test-coverage: todo
   comment: |
    i have check i may need more kinds though
 
   # Gold
   devices: done
-  diagnostics: todo
+  diagnostics: done
   comment: |
-    doesnt exist
+    i mean if giving the raw stuff that shade is sending when i press enable debug log complies with this rule then it passes
   discovery-update-info: todo
   comment: |
     could use serial number to identify shade and update ip address
   discovery: todo
   comment: |
-    its broken
+    removed will add later
   docs-data-update: done
   docs-examples: done
   docs-known-limitations: done
   comment: |
     1. no name given out, done serial number (you have to manually name it) 
-  docs-supported-devices: todo
-  comment: |
-    Poe shades are tested, the rf hub for the rf shades is unknown however
+  docs-supported-devices: done
   docs-supported-functions: done
   docs-troubleshooting: done
   docs-use-cases: done

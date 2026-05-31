@@ -10,10 +10,10 @@
     },
     "error": {
       "invalid_ip": "The IP address format provided is invalid.",
-      "cannot_connect": "Failed to connect to the shade. Please verify the IP address and ensure port 42 is accessible."
+      "cannot_connect": "Failed to connect to the shade. Please verify the IP address."
     },
     "abort": {
-      "already_configured": "This PowerShades device is already configured."
+      "already_configured": "This PowerShades device is already configured in Home Assistant!"
     }
   }
 }
