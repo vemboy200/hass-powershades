@@ -12,10 +12,18 @@ jobs:
   lint_and_format:
     runs-on: ubuntu-latest
     steps:
+    - uses: "actions/checkout@v4"
+    - uses: "home-assistant/actions/hassfest@master"
+    
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         ref: ${{ github.head_ref }}
+        
+    - name: HACS Action
+      uses: hacs/action@22.5.0
+      with:
+          category: integration
 
     - name: Set up Python
       uses: actions/setup-python@v5
