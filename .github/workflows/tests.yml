@@ -22,7 +22,8 @@ jobs:
         
     - name: HACS Action
       uses: hacs/action@22.5.0
-      
+      with:
+          category: integration
 
     - name: Set up Python
       uses: actions/setup-python@v5
