@@ -30,10 +30,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ip_address = entry.data.get("ip")
 
     _LOGGER.info(
-        "Verifying connectivity to PowerShades device at %s on startup", ip_address
+        "Verifying connectivity to PowerShades device at %s on startup",
+        ip_address,
     )
 
-    # Quality Scale Guard: Verify the saved IP address is actually reachable before setting up platforms
+    # Quality Scale Guard: Verify the saved IP address is reachable before setting up platforms
     try:
         from .udp import build_get_serial_packet
 
@@ -51,13 +52,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "PowerShades device at %s is unreachable on port 42. Postponing setup",
             ip_address,
         )
-        # Raising this turns the integration card orange in the UI with a "Retrying setup" status
         raise ConfigEntryNotReady(
             f"Could not connect to PowerShades at {ip_address}"
         ) from ex
 
-    # If the network check passes, safely hand off setup to your platforms
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = ip_address
+    # 1. Initialize your actual device class mapping
+    from .device import PowerShadesDevice
+
+    device = PowerShadesDevice(hass, entry)
+
+    # 2. Store the rich device object inside hass.data so cover/button platforms can extract it
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = device
+
+    # 3. Hand off setup execution to cover.py and button.py platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
