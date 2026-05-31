@@ -13,6 +13,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import UpdateFailed
+
 
 from .const import DOMAIN
 from .udp import crc16_xmodem
@@ -234,6 +236,10 @@ class PowerShadesDevice:
 
     def _adjust_polling_frequency(self):
         """Adjust polling frequency based on device state."""
+        is_moving = getattr(self, "_is_opening", False) or getattr(
+            self, "_is_closing", False
+        )
+
         if self._available and self._position is None:
             # Device available but position unknown - poll more frequently
             if self.coordinator.update_interval.total_seconds() > 5:
@@ -242,6 +248,14 @@ class PowerShadesDevice:
                     self.ip_address,
                 )
                 self.coordinator.update_interval = timedelta(seconds=5)
+        elif self._available and getattr(self, "_is_moving", False):
+            # Device available and position known - normal polling
+            if self.coordinator.update_interval.total_seconds() < 2:
+                _LOGGER.debug(
+                    "Shade moving ( %s ), fast polling started",
+                    self.ip_address,
+                )
+                self.coordinator.update_interval = timedelta(seconds=2)
         elif self._available and self._position is not None:
             # Device available and position known - normal polling
             if self.coordinator.update_interval.total_seconds() < 10:
@@ -250,6 +264,36 @@ class PowerShadesDevice:
                     self.ip_address,
                 )
                 self.coordinator.update_interval = timedelta(seconds=10)
+
+    async def _async_update_data(self):
+        """Fetch and parse data from the PowerShades motor."""
+        try:
+            # 1. Your existing logic to handle incoming UDP response packets
+            # (Whether from an active poll or an instant push from an HA action)
+            data = await self._fetch_udp_data()
+
+            new_position = data.get("position")
+            current_state = data.get("state")  # e.g., "opening", "closing", "stopped"
+
+            # 2. Apply combined Idea 1 & 2 logic
+            if new_position in (0, 100):
+                # Idea 1 Guard: If at physical limits, it cannot be moving
+                self._is_moving = False
+            elif current_state in ("opening", "closing"):
+                # Idea 2 Accelerator: Pushed state or poll shows active movement
+                self._is_moving = True
+            else:
+                # Idle or stopped at a partial position
+                self._is_moving = False
+
+            # 3. Shift gears immediately based on the updated state
+            self._adjust_polling_frequency()
+
+            return data
+
+        except Exception as err:
+            _LOGGER.error("Error communicating with PowerShades motor: %s", err)
+            raise UpdateFailed(err)
 
     async def _async_update_data(self):
         """Update device data."""
