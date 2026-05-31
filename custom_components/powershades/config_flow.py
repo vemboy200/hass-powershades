@@ -61,7 +61,9 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             if parsed and parsed["ip"] == ip_address:
                                 device_info = parsed
                         except socket.timeout:
-                            _LOGGER.warning("No response from %s on port 42", ip_address)
+                            _LOGGER.warning(
+                                "No response from %s on port 42", ip_address
+                            )
                         finally:
                             sock.close()
                     except Exception as e:
