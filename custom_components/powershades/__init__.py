@@ -18,6 +18,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the PowerShades component."""
     return True
 
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the PowerShades component."""
     hass.data.setdefault(DOMAIN, {})
