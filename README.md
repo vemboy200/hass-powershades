@@ -5,7 +5,7 @@
 >
 > The Beta for v0.3.0 is broken due to a bad init.py file, if you know how to develop, I would recommend you look between the last stable build (v0.2.3) and the beta to see what I did wrong, and open a pr with a fix. Even though development is paused I will continue looking at new issues and prs, albeit I wont merge, fix, or test them until development is unpaused.
 >
-> While I will have a lot of free time to work on this over the summer break in June, developemt will be paused again in July as I will be going on vacation, and I do not want to remotely develop on my Home Assistant instance since it could risk breaking it and I cannot fix it since I will not be home.
+> While I will have a lot of free time to work on this over the summer break in June, development will be paused again in July as I will be going on vacation, and I do not want to remotely develop on my Home Assistant instance since it could risk breaking it and I cannot fix it since I will not be home.
 
 
 The Home Assistant Powershades integration allows to control your power over ethernet (PoE) [Powershades](https://powershades.com) shades. This integration is only tested with PoE Powershades, so support with the RF hub may be limited or nonexistent.
