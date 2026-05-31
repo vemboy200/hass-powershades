@@ -11,7 +11,7 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
  ## Prerequisites
 
-Before setting up this integration make sure you can get the IP address of your powershade, auto discovery is broken and will not fetch the IP address of the shade.
+Before setting up this integration make sure you can get the IP address of your powershade.
 
 It is unknown (at least to me) if UDP communication is on by default, however the integration communicates to the blinds using UDP. If UDP is not enabled on your shade, you have to figure out how to enable it yourself. If you have figured out how to enable UDP, please open an issue and explain how you enabled UDP.
 
@@ -86,15 +86,13 @@ Other than the [issues](https://github.com/vemboy200/hass-powershades/issues) li
  - Theres probably more that I forgot to mention, if you found a known limiation please post an issue on this repo about it
 
 ## Troubleshooting 
-### No device discovered or a bad IP was found during setup 
-- Try entering the IP address manually instead of relying on auto-discovery. After all autodiscovery is broken right now, the other two tips are placeholders, dont rely on them.
-- Ensure the Powershade shade is powered on and connected to your network.
-- Verify the device is on the same subnet as Home Assistant.
+### I got an error about it not being able to connect
+- This means that Home Assistant could not communicate to the shade, make sure home assistant can access port 42 on your shade, and that UDP broadcasts can be routed between different subnets if needed.
+- You entered a wrong IP address or you entered an IP address that was already in use by a config entry
 ### Cover entity shows as unavailable 
 - This means that Home Assistant could not communicate to the shade, make sure home assistant can access port 42 on your shade, and that UDP broadcasts can be routed between different subnets if needed.
 - It could also mean that your shade is not connected to your local network
 ### Cover entity shows as unknown
-- This most likely occured because you selected the bad IP "discovered" by the broken auto discovery, remove it.
 - If you're getting unknown despite having a valid IP address, please open an issue with your debug log if possible
 ### Cover shows its still opening or closing despite it not moving
 - [Issue #2](https://github.com/vemboy200/hass-powershades/issues/2)
