@@ -27,7 +27,7 @@ class PowerShadesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial user setup step by going straight to manual entry."""
         return await self.async_step_manual_entry(user_input)
 
-async def async_step_manual_entry(self, user_input=None) -> FlowResult:
+    async def async_step_manual_entry(self, user_input=None) -> FlowResult:
         """Handle manual IP entry and query the device directly for verification."""
         errors = {}
 
@@ -65,7 +65,11 @@ async def async_step_manual_entry(self, user_input=None) -> FlowResult:
                         finally:
                             sock.close()
                     except Exception as e:
-                        _LOGGER.error("Error communicating with device at %s: %s", ip_address, e)
+                        _LOGGER.error(
+                            "Error communicating with device at %s: %s",
+                            ip_address,
+                            e,
+                        )
 
                     # Quality Scale Guard: Reject entry creation if the socket connection dropped/timed out
                     if device_info is None:
@@ -76,7 +80,11 @@ async def async_step_manual_entry(self, user_input=None) -> FlowResult:
                         self._abort_if_unique_id_configured()
 
                         device_name = await async_get_device_name(self.hass, ip_address)
-                        title = f"PowerShade {device_name}" if device_name else f"PowerShade {ip_address}"
+                        title = (
+                            f"PowerShade {device_name}"
+                            if device_name
+                            else f"PowerShade {ip_address}"
+                        )
 
                         return self.async_create_entry(
                             title=title,
@@ -103,26 +111,9 @@ async def async_step_manual_entry(self, user_input=None) -> FlowResult:
 class PowerShadesOptionsFlow(config_entries.OptionsFlow):
     """Handle PowerShades options."""
 
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input=None):
-        """Manage the options."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({}),
-        )
-        
-class PowerShadesOptionsFlow(config_entries.OptionsFlow):
-    """Handle PowerShades options."""
-
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        super().__init__(config_entry)  # Pass config_entry directly to the parent class
+        super().__init__(config_entry)
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
