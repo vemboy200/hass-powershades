@@ -1,7 +1,6 @@
 """PowerShades services."""
 
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
