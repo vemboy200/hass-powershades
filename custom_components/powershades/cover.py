@@ -69,6 +69,10 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
         self._last_position = None
         self._target_position = None
         self._is_stopping = False  # Flag to prevent movement state updates after stop
+        # Consecutive polls with no position change while moving and no known
+        # target (e.g. an externally-triggered move). Used to detect that the
+        # shade has stopped even though HA never requested the move.
+        self._unchanged_position_count = 0
 
         # Last known values for when device becomes unavailable
         self._last_known_position = None
@@ -183,6 +187,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
             self._is_closing = False
             self._target_position = None
             self._is_stopping = False
+            self._unchanged_position_count = 0
             return
 
         if self._last_position is None:
@@ -191,6 +196,7 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
             self._is_opening = False
             self._is_closing = False
             self._is_stopping = False
+            self._unchanged_position_count = 0
             return
 
         # If we're in stopping state, don't update movement states
@@ -206,6 +212,8 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
 
         # Check if position changed
         if new_position != self._last_position:
+            self._unchanged_position_count = 0
+
             if new_position > self._last_position:
                 # Position increased - opening
                 self._is_opening = True
@@ -238,18 +246,46 @@ class PowerShadesCover(CoordinatorEntity, CoverEntity):
                 _LOGGER.debug(
                     "Cover %s reached target position %d", self.entity_id, new_position
                 )
-        else:
-            # Position unchanged - check if we should stop movement states
-            if (
-                self._target_position is not None
-                and abs(new_position - self._target_position) <= 2
-            ):
+        elif self._target_position is not None:
+            # Position unchanged - check if we're close enough to the target to stop
+            if abs(new_position - self._target_position) <= 2:
                 self._is_opening = False
                 self._is_closing = False
                 self._target_position = None
+                self._unchanged_position_count = 0
                 _LOGGER.debug(
                     "Cover %s stopped at position %d", self.entity_id, new_position
                 )
+        elif self._is_opening or self._is_closing:
+            # Position unchanged and we have no target (e.g. the shade was moved
+            # by an external source such as Control4). Require two consecutive
+            # unchanged readings before declaring the shade stopped, so a single
+            # missed/duplicate status packet doesn't prematurely clear movement.
+            self._unchanged_position_count += 1
+            if self._unchanged_position_count >= 2:
+                _LOGGER.debug(
+                    "Cover %s position unchanged at %d for %d polls, treating "
+                    "as stopped",
+                    self.entity_id,
+                    new_position,
+                    self._unchanged_position_count,
+                )
+                self._is_opening = False
+                self._is_closing = False
+                self._is_stopping = False
+                self._unchanged_position_count = 0
+        else:
+            self._unchanged_position_count = 0
+
+        # Physical limits are authoritative: the shade cannot still be closing
+        # once it's at 0%, or still be opening once it's at 100%, no matter
+        # where the position update came from. Only clear the flag that's now
+        # impossible - if a move was just commanded *from* this limit (e.g.
+        # closing from 100%), the other flag/target must survive untouched.
+        if new_position == 0 and self._is_closing:
+            self._is_closing = False
+        elif new_position == 100 and self._is_opening:
+            self._is_opening = False
 
         self._last_position = new_position
 
