@@ -1,13 +1,5 @@
 # PowerShades Home Assistant Integration
 
-> [!NOTE]
-> Development for this integration is paused until around June 11th due to finals coming up.
->
-> The Beta for v0.3.0 is broken due to a bad init.py file, if you know how to develop, I would recommend you look between the last stable build (v0.2.3) and the beta to see what I did wrong, and open a pr with a fix. Even though development is paused I will continue looking at new issues and prs, albeit I wont merge, fix, or test them until development is unpaused.
->
-> While I will have a lot of free time to work on this over the summer break in June, development will be paused again in July as I will be going on vacation, and I do not want to remotely develop on my Home Assistant instance since it could risk breaking it and I cannot fix it since I will not be home.
-
-
 The Home Assistant Powershades integration allows to control your power over ethernet (PoE) [Powershades](https://powershades.com) shades. This integration is only tested with PoE Powershades, so support with the RF hub may be limited or nonexistent.
 
 If you have RF shades it is recommended you buy a [Bond Bridge](https://bondhome.io/) and connect your RF shades using that, then connect it to Home Assistant using the [built in integration](https://www.home-assistant.io/integrations/bond/). If you already have Powershade's RF Hub, please open an issue and report what the results are trying to connect the hub to Home Assistant using this integration.
@@ -66,7 +58,7 @@ A cover entity allows you to control the shade, with the following commands bein
   - Stop Cover
   - Close Cover
   - Set cover position (Target percentage)
-The Shade will instantly report to home Assistant that a command has been executed successfully, however the real % of the shade being opened is either broadcasted every 10 seconds or polled dynamically (more info in the Data Updates section)
+The Shade will instantly report to home Assistant that a command has been executed successfully, however the real % of the shade being opened is either broadcasted or polled every 10 seconds (more info in the Data Updates section)
 
 ### Button entites (listed as Configuration)
  - Clear Limits: Removes the predefined open and close limits of your shade
