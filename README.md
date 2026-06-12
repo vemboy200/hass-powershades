@@ -80,7 +80,7 @@ The Shade will instantly report to home Assistant that a command has been execut
  - Has an Attribute saying its millivolatge
 
 ## Data Updates
-While the UDP protocol allows for push updates it only happens when Home Assistant controls the device. When an external source (ex: Powershades App or Control4) controls the device, the only way to get the device's status is by polling. So currently Home Assistant polls the shade every 10 seconds if the shade's status is known or every 5 seconds if the status is unknown. This will change with it being 10 seconds if inactive, 5 if unknown and 2 if the shade is moving.
+While the UDP protocol allows for push updates it only happens when Home Assistant controls the device. When an external source (ex: Powershades App or Control4) controls the device, the only way to get the device's status is by polling. So Home Assistant polls the shade every 10 seconds.
 
 All communication is local and the data does not leave your house, which is kind of weird considering that in the offical Powershades app, all data goes through their cloud. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
 
