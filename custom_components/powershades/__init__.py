@@ -22,6 +22,11 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the PowerShades component."""
+    hass.data.setdefault(DOMAIN, {})
+
+    # Set up services
+    await async_setup_services(hass)
+
     return True
 
 
@@ -64,7 +69,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # 2. Store the rich device object inside hass.data so cover/button platforms can extract it
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = device
 
-    # 3. Hand off setup execution to cover.py and button.py platforms
+    # 3. Start the device (UDP listener + coordinator) so state and commands work
+    await device.async_start()
+
+    # 4. Hand off setup execution to cover.py and button.py platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    device = hass.data[DOMAIN].get(entry.entry_id)
+    if device:
+        await device.async_stop()
+
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok
+
+
+async def async_unload(hass: HomeAssistant) -> bool:
+    """Unload the PowerShades component."""
+    await async_unload_services(hass)
     return True
