@@ -235,9 +235,12 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 - Reconfiguring also backfills the shade's serial number into the entry, so older entries now show a "Serial number" on their device page (purely informational, like the Enphase Envoy integration)
 - New devices discovered in the background that match an already-configured legacy entry (by IP) are now hidden from the picker instead of offering a duplicate setup
 - **Deprecation notice**: entries created before serial numbers were stored use an older identifier system (based on the entry's IP address, or in some very old entries an internal ID). Use the new "Reconfigure" option once on each such entry to migrate it to the serial-based system - note this will reset that entry's entities, so you may need to rename them and re-add them to dashboards/automations. Support for the old identifier system will be removed in v0.8.0; entries not migrated by then may need to be deleted and re-added
+
+### v0.7.0
 - Added a diagnostics download (Settings → Devices & Services → PowerShades → the entry → Download diagnostics), with the IP, MAC, serial number and unique ID redacted
 - If a shade doesn't respond when Home Assistant starts, a repair notification now explains the problem and points at the "Reconfigure" option in case its IP address changed
 - Button names and error messages are now translatable
+- Integration now meets Home Assistant's Gold quality scale
 
 ### v0.4.1
 - Status polls no longer time out (and flood the log with errors) on real hardware. Real shade firmware does not echo the request's sequence number on Get Status (0x1D) — it always replies with sequence 1 (verified against both a Wi-Fi and a PoE shade). Matching replies by (op, sequence) made every poll time out while its reply was processed as an unsolicited push, flapping the coordinator between success and failure and logging an error on nearly every 10-second poll cycle. Replies are now matched by opcode alone, which is safe because requests on a connection are serialized. The same mismatch could also make commands report "did not acknowledge" even though the shade executed them.
