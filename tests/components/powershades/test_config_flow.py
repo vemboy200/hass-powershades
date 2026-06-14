@@ -261,6 +261,32 @@ async def test_reconfigure_same_ip(
     assert entry.data["ip"] == TEST_IP
 
 
+async def test_reconfigure_backfills_missing_serial(
+    hass: HomeAssistant, mock_device_info, mock_setup_entry
+) -> None:
+    """An entry with unique_id but no stored "serial" gets it backfilled.
+
+    Some entries ended up with a unique_id set (from an earlier probe)
+    but no "serial" key in their data, so their device page never
+    showed a "Serial number". Reconfiguring fixes this.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "name": "Bedroom Shade", "model": 1},
+        unique_id="12345",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"ip": TEST_IP}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["serial"] == 12345
+
+
 async def test_reconfigure_ip_changed(
     hass: HomeAssistant, mock_device_info, mock_setup_entry
 ) -> None:

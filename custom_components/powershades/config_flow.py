@@ -195,9 +195,10 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle reconfiguration: fix the IP after a DHCP change.
 
-        For entries set up before serials were stored, this also
-        backfills the serial number (and sets the entry's unique_id),
-        bringing it in line with newly-created entries.
+        This also backfills the serial number into the entry's data
+        (and sets the entry's unique_id if it wasn't set yet), so
+        entries set up before serials were stored show a "Serial
+        number" on their device page just like newly-created entries.
         """
         reconfigure_entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
@@ -223,6 +224,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
                                 reconfigure_entry,
                                 data_updates={
                                     "ip": ip,
+                                    "serial": info["serial"],
                                     "name": info["name"],
                                     "model": info["model"],
                                 },
