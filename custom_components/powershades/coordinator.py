@@ -109,10 +109,16 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         else:
             name = f"PowerShade {self.ip_address}"
 
+        # The entry_id is always present and never changes, so it's a
+        # stable primary identifier. The serial is added once known so
+        # devices set up before serials were stored (identified only by
+        # entry_id) and devices set up after (identified only by serial)
+        # converge onto the same device registry entry once both are
+        # present - the registry merges identifier sets onto a matching
+        # existing device rather than requiring an exact match.
+        identifiers = {(DOMAIN, self.entry_id)}
         if self.serial_number:
-            identifiers = {(DOMAIN, str(self.serial_number))}
-        else:
-            identifiers = {(DOMAIN, self.entry_id)}
+            identifiers.add((DOMAIN, str(self.serial_number)))
 
         return DeviceInfo(
             identifiers=identifiers,

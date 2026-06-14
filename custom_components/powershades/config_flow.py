@@ -43,7 +43,19 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle the initial step: discover devices on the network."""
         discovered = await async_discover_devices(self.hass)
-        self._discovered = {device["ip"]: device for device in discovered}
+        configured_ips = set()
+        configured_serials = set()
+        for entry in self._async_current_entries(include_ignore=False):
+            if entry.data.get("ip") is not None:
+                configured_ips.add(entry.data["ip"])
+            if entry.unique_id is not None:
+                configured_serials.add(entry.unique_id)
+        self._discovered = {
+            device["ip"]: device
+            for device in discovered
+            if device["ip"] not in configured_ips
+            and str(device["serial"]) not in configured_serials
+        }
         if not self._discovered:
             return await self.async_step_manual()
         return await self.async_step_pick_device()
@@ -176,6 +188,71 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
                 "name": self._discovered_name or "PowerShades device",
                 "ip": self._discovered_ip or "",
             },
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration: fix the IP after a DHCP change.
+
+        For entries set up before serials were stored, this also
+        backfills the serial number (and sets the entry's unique_id),
+        bringing it in line with newly-created entries.
+        """
+        reconfigure_entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            ip = user_input["ip"].strip()
+            try:
+                ipaddress.IPv4Address(ip)
+            except ValueError:
+                errors["ip"] = "invalid_ip"
+            else:
+                try:
+                    info = await async_get_device_info(ip)
+                except PowerShadesTimeoutError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    serial = str(info["serial"])
+                    if reconfigure_entry.unique_id is not None:
+                        if reconfigure_entry.unique_id != serial:
+                            errors["base"] = "wrong_device"
+                        else:
+                            return self.async_update_reload_and_abort(
+                                reconfigure_entry,
+                                data_updates={
+                                    "ip": ip,
+                                    "name": info["name"],
+                                    "model": info["model"],
+                                },
+                            )
+                    else:
+                        for entry in self._async_current_entries(include_ignore=False):
+                            if (
+                                entry.entry_id != reconfigure_entry.entry_id
+                                and entry.unique_id == serial
+                            ):
+                                errors["base"] = "already_configured"
+                                break
+                        else:
+                            return self.async_update_reload_and_abort(
+                                reconfigure_entry,
+                                unique_id=serial,
+                                data_updates={
+                                    "ip": ip,
+                                    "serial": info["serial"],
+                                    "name": info["name"],
+                                    "model": info["model"],
+                                },
+                            )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {vol.Required("ip", default=reconfigure_entry.data["ip"]): str}
+            ),
+            errors=errors,
         )
 
     async def _async_validate_and_create(
