@@ -218,6 +218,14 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
                     serial = str(info["serial"])
                     if reconfigure_entry.unique_id is not None:
                         if reconfigure_entry.unique_id != serial:
+                            _LOGGER.debug(
+                                "Reconfigure mismatch for %s: entry unique_id=%s, "
+                                "probed serial at %s=%s",
+                                reconfigure_entry.title,
+                                reconfigure_entry.unique_id,
+                                ip,
+                                serial,
+                            )
                             errors["base"] = "wrong_device"
                         else:
                             return self.async_update_reload_and_abort(
