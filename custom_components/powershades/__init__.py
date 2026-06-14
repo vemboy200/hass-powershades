@@ -10,6 +10,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.typing import ConfigType
 
@@ -71,6 +72,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+def _cannot_connect_issue_id(entry: PowerShadesConfigEntry) -> str:
+    """Return the repair issue ID for a setup-failure of this entry."""
+    return f"cannot_connect_{entry.entry_id}"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) -> bool:
     """Set up PowerShades from a config entry."""
     connection = PowerShadesConnection(entry.data["ip"])
@@ -81,7 +87,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
         await coordinator.async_config_entry_first_refresh()
     except ConfigEntryNotReady:
         connection.close()
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            _cannot_connect_issue_id(entry),
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="cannot_connect",
+            translation_placeholders={"name": entry.title, "ip": entry.data["ip"]},
+        )
         raise
+
+    ir.async_delete_issue(hass, DOMAIN, _cannot_connect_issue_id(entry))
 
     entry.runtime_data = coordinator
     entry.async_on_unload(connection.close)
@@ -96,4 +113,5 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: PowerShadesConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    ir.async_delete_issue(hass, DOMAIN, _cannot_connect_issue_id(entry))
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

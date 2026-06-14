@@ -85,9 +85,10 @@ rules:
   devices: done
   comment: |
     DeviceInfo includes identifiers, MAC connection, manufacturer, model and serial number
-  diagnostics: todo
+  diagnostics: done
   comment: |
-    no diagnostics.py platform implemented
+    diagnostics.py returns the entry's data and the coordinator's current state,
+    redacting the ip, mac, serial and unique_id
   discovery-update-info: done
   comment: |
     rediscovery updates the stored IP (and MAC) via _abort_if_unique_id_configured(updates=...)
@@ -122,21 +123,26 @@ rules:
   entity-disabled-by-default: done
   comment: |
     battery and voltage sensors are entity_registry_enabled_default=False
-  entity-translations: todo
+  entity-translations: done
   comment: |
-    entity names are hardcoded strings (e.g. name="Toggle Shade") rather than translation keys
-  exception-translations: todo
+    button entities use translation_key with names defined under entity.button in
+    strings.json/translations
+  exception-translations: done
   comment: |
-    exception messages are plain f-strings, not translation keys
+    HomeAssistantError/ServiceValidationError raised from services.py and
+    coordinator.py use translation_domain/translation_key/translation_placeholders,
+    with messages defined under exceptions in strings.json/translations
   icon-translations: exempt
   comment: |
     icons are static (mdi:* set in code), there's nothing state-dependent to translate
-  reconfiguration-flow: todo
+  reconfiguration-flow: done
   comment: |
-    no async_step_reconfigure; an IP change is only picked up if rediscovered automatically
-  repair-issues: todo
+    async_step_reconfigure lets the user update the IP after a DHCP change, and
+    backfills/migrates the serial-based unique_id for legacy entries
+  repair-issues: done
   comment: |
-    not implemented
+    a repair issue is created if the config entry fails its first refresh
+    (cannot_connect), and cleared once setup succeeds or the entry is unloaded
   stale-devices: exempt
   comment: |
     single device per config entry, nothing to go stale independently

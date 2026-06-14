@@ -191,10 +191,15 @@ async def test_async_set_position_failure_clears_target(coordinator) -> None:
 
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
 
-    with pytest.raises(HomeAssistantError):
+    with pytest.raises(HomeAssistantError) as exc_info:
         await coordinator.async_set_position(75)
 
     assert coordinator._target_position is None
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "command_not_acknowledged"
+    assert exc_info.value.translation_placeholders == {
+        "ip_address": coordinator.ip_address
+    }
 
 
 async def test_async_stop_clears_target(coordinator) -> None:

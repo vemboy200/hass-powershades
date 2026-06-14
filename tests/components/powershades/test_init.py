@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 
 from custom_components.powershades.const import DOMAIN, OP_GET_SERIAL, OP_GET_STATUS
 from custom_components.powershades.coordinator import PowerShadesCoordinator
@@ -55,6 +56,53 @@ async def test_setup_entry_not_ready(hass: HomeAssistant) -> None:
 
     assert entry.state is ConfigEntryState.SETUP_RETRY
     mock_close.assert_called_once()
+
+    issue_registry = ir.async_get(hass)
+    assert issue_registry.async_get_issue(DOMAIN, f"cannot_connect_{entry.entry_id}")
+
+
+async def test_setup_entry_clears_cannot_connect_issue(hass: HomeAssistant) -> None:
+    """A repair issue from a previous failed setup is cleared on success."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    issue_registry = ir.async_get(hass)
+    issue_id = f"cannot_connect_{entry.entry_id}"
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        issue_id,
+        is_fixable=False,
+        severity=ir.IssueSeverity.ERROR,
+        translation_key="cannot_connect",
+        translation_placeholders={"name": entry.title, "ip": TEST_IP},
+    )
+    assert issue_registry.async_get_issue(DOMAIN, issue_id)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+        patch("custom_components.powershades.get_mac_address", return_value=None),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
 
 
 async def test_unload_entry(hass: HomeAssistant, config_entry) -> None:

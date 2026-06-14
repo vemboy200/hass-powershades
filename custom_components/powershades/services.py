@@ -26,11 +26,17 @@ def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PowerShadesCoord
     entity_id = call.data[ATTR_ENTITY_ID]
     entity = er.async_get(hass).async_get(entity_id)
     if entity is None or entity.platform != DOMAIN:
-        raise ServiceValidationError(f"{entity_id} is not a PowerShades entity")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="entity_not_found",
+            translation_placeholders={"entity_id": entity_id},
+        )
     entry = hass.config_entries.async_get_entry(entity.config_entry_id)
     if entry is None or entry.state is not ConfigEntryState.LOADED:
         raise HomeAssistantError(
-            f"The PowerShades config entry for {entity_id} is not loaded"
+            translation_domain=DOMAIN,
+            translation_key="entry_not_loaded",
+            translation_placeholders={"entity_id": entity_id},
         )
     return entry.runtime_data
 
@@ -66,7 +72,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def set_shade_name(call: ServiceCall) -> None:
         name = call.data["name"].strip()
         if not name or len(name) > 50 or not name.isascii():
-            raise ServiceValidationError("Shade name must be 1-50 ASCII characters")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_shade_name",
+            )
         await _get_coordinator(hass, call).async_set_shade_name(name)
 
     for name, handler in (

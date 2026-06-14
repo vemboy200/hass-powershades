@@ -214,7 +214,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             await self.connection.async_request(op, payload)
         except PowerShadesTimeoutError as err:
             raise HomeAssistantError(
-                f"Shade at {self.ip_address} did not acknowledge the command"
+                translation_domain=DOMAIN,
+                translation_key="command_not_acknowledged",
+                translation_placeholders={"ip_address": self.ip_address},
             ) from err
 
     async def async_set_position(self, position: int) -> None:
@@ -296,12 +298,16 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             )
         except PowerShadesTimeoutError as err:
             raise HomeAssistantError(
-                f"Shade at {self.ip_address} did not confirm its new name"
+                translation_domain=DOMAIN,
+                translation_key="rename_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
             ) from err
         confirmed = parse_shade_name_reply(reply)
         if not confirmed:
             raise HomeAssistantError(
-                f"Shade at {self.ip_address} returned an empty name"
+                translation_domain=DOMAIN,
+                translation_key="rename_empty_name",
+                translation_placeholders={"ip_address": self.ip_address},
             )
 
         self.device_name = confirmed
