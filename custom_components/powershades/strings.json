@@ -35,7 +35,8 @@
         },
         "abort": {
             "already_configured": "Device is already configured",
-            "cannot_connect": "The device did not respond to a PowerShades probe"
+            "cannot_connect": "The device did not respond to a PowerShades probe",
+            "reconfigure_successful": "Re-configuration was successful"
         }
     }
 }
