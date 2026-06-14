@@ -216,7 +216,17 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = "cannot_connect"
                 else:
                     serial = str(info["serial"])
-                    if reconfigure_entry.unique_id is not None:
+                    # A real serial-based unique_id is a digit string. Older
+                    # versions used unique_id=None (no probe at all) or a
+                    # "manual_<ip>" placeholder (probe didn't return a
+                    # serial) - both are treated as legacy and eligible for
+                    # migration to a real serial below, instead of
+                    # producing a false wrong_device error.
+                    has_serial_unique_id = (
+                        reconfigure_entry.unique_id is not None
+                        and reconfigure_entry.unique_id.isdigit()
+                    )
+                    if has_serial_unique_id:
                         if reconfigure_entry.unique_id != serial:
                             _LOGGER.debug(
                                 "Reconfigure mismatch for %s: entry unique_id=%s, "

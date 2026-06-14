@@ -287,6 +287,35 @@ async def test_reconfigure_backfills_missing_serial(
     assert entry.data["serial"] == 12345
 
 
+async def test_reconfigure_manual_placeholder_migration(
+    hass: HomeAssistant, mock_device_info, mock_setup_entry
+) -> None:
+    """An entry with a "manual_<ip>" placeholder unique_id gets migrated.
+
+    The very first version of the config flow used unique_id =
+    f"manual_{ip.replace('.', '_')}" when the initial probe didn't return a
+    serial. These entries are functionally legacy - they should be migrated
+    to a real serial-based unique_id on reconfigure, not flagged as
+    wrong_device.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "name": "Bedroom Shade", "model": 1},
+        unique_id=f"manual_{TEST_IP.replace('.', '_')}",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"ip": TEST_IP}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.unique_id == "12345"
+    assert entry.data["serial"] == 12345
+
+
 async def test_reconfigure_ip_changed(
     hass: HomeAssistant, mock_device_info, mock_setup_entry
 ) -> None:
