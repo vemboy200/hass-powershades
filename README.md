@@ -223,7 +223,7 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 
 ## Changelog
 
-### v0.5.0 (in beta)
+### v0.5.0
 - Home Assistant now always assumes the state of the shade instead of only when its the UDP master
 - Added quality_scale.yaml file
 - Added stuff to make this integration sliver quality
