@@ -1,0 +1,99 @@
+{
+    "config": {
+        "flow_title": "{name}",
+        "step": {
+            "pick_device": {
+                "title": "Selecciona tu dispositivo PowerShades",
+                "data": {
+                    "device": "Dispositivo"
+                }
+            },
+            "manual": {
+                "title": "Conectar a un dispositivo PowerShades",
+                "description": "Introduce la dirección IP de tu dispositivo PowerShades.",
+                "data": {
+                    "ip": "Dirección IP"
+                }
+            },
+            "discovery_confirm": {
+                "title": "Dispositivo PowerShades descubierto",
+                "description": "¿Quieres configurar {name} ({ip})?"
+            },
+            "reconfigure": {
+                "title": "Reconfigurar dispositivo PowerShades",
+                "description": "Actualiza la dirección IP si ha cambiado (por ejemplo, tras una reasignación DHCP).",
+                "data": {
+                    "ip": "Dirección IP"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "El dispositivo no respondió. Comprueba la dirección IP y asegúrate de que la persiana esté activa.",
+            "invalid_ip": "Dirección IPv4 no válida",
+            "wrong_device": "El dispositivo en esta dirección IP es una persiana diferente a la configurada aquí",
+            "same_ip": "Esta ya es la dirección IP configurada para esta persiana"
+        },
+        "abort": {
+            "already_configured": "El dispositivo ya está configurado",
+            "cannot_connect": "El dispositivo no respondió a una verificación de PowerShades",
+            "reconfigure_successful": "La reconfiguración se realizó correctamente"
+        }
+    },
+    "issues": {
+        "cannot_connect": {
+            "title": "{name} no responde",
+            "description": "Home Assistant no pudo conectarse a la persiana PowerShades \"{name}\" en {ip}.\n\nAsegúrate de que la persiana esté encendida y conectada a la red, y luego recarga la integración. Si su dirección IP ha cambiado, abre la entrada de PowerShades del dispositivo, selecciona **Reconfigurar** e introduce la nueva dirección IP."
+        }
+    },
+    "exceptions": {
+        "entity_not_found": {
+            "message": "{entity_id} no es una entidad de PowerShades."
+        },
+        "entry_not_loaded": {
+            "message": "La entrada de configuración de PowerShades para {entity_id} no está cargada."
+        },
+        "invalid_shade_name": {
+            "message": "El nombre de la persiana debe tener entre 1 y 50 caracteres ASCII."
+        },
+        "command_not_acknowledged": {
+            "message": "La persiana en {ip_address} no confirmó el comando."
+        },
+        "rename_not_confirmed": {
+            "message": "La persiana en {ip_address} no confirmó su nuevo nombre."
+        },
+        "rename_empty_name": {
+            "message": "La persiana en {ip_address} devolvió un nombre vacío."
+        }
+    },
+    "entity": {
+        "button": {
+            "toggle": {
+                "name": "Alternar persiana"
+            },
+            "identify": {
+                "name": "Identificar"
+            },
+            "jog_up": {
+                "name": "Avance hacia arriba"
+            },
+            "jog_down": {
+                "name": "Avance hacia abajo"
+            },
+            "set_upper_limit": {
+                "name": "Establecer límite superior"
+            },
+            "set_lower_limit": {
+                "name": "Establecer límite inferior"
+            },
+            "clear_limits": {
+                "name": "Borrar límites"
+            },
+            "step_up": {
+                "name": "Paso hacia arriba"
+            },
+            "step_down": {
+                "name": "Paso hacia abajo"
+            }
+        }
+    }
+}

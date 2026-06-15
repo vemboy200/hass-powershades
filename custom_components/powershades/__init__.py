@@ -39,7 +39,7 @@ async def _async_update_device_metadata(
     known reachable and the ARP cache is warm from the UDP exchange.
     Best-effort: silently keeps the entry unchanged on lookup failure.
     """
-    updates: dict = {}
+    updates: dict[str, str | int] = {}
 
     mac = await hass.async_add_executor_job(
         lambda: get_mac_address(ip=entry.data["ip"])

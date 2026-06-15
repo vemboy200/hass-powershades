@@ -14,6 +14,7 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .const import DOMAIN
 from .udp import (
+    DiscoveredDevice,
     PowerShadesTimeoutError,
     async_discover_devices,
     async_get_device_info,
@@ -31,7 +32,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._discovered: dict[str, dict] = {}
+        self._discovered: dict[str, DiscoveredDevice] = {}
         self._discovered_ip: str | None = None
         self._discovered_serial: int | None = None
         self._discovered_name: str | None = None
@@ -43,18 +44,15 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle the initial step: discover devices on the network."""
         discovered = await async_discover_devices(self.hass)
-        configured_ips = set()
-        configured_serials = set()
-        for entry in self._async_current_entries(include_ignore=False):
-            if entry.data.get("ip") is not None:
-                configured_ips.add(entry.data["ip"])
-            if entry.unique_id is not None:
-                configured_serials.add(entry.unique_id)
+        configured_serials = {
+            entry.unique_id
+            for entry in self._async_current_entries(include_ignore=False)
+            if entry.unique_id is not None
+        }
         self._discovered = {
             device["ip"]: device
             for device in discovered
-            if device["ip"] not in configured_ips
-            and str(device["serial"]) not in configured_serials
+            if str(device["serial"]) not in configured_serials
         }
         if not self._discovered:
             return await self.async_step_manual()
@@ -136,10 +134,6 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_handle_discovery(self, ip: str, serial: int) -> ConfigFlowResult:
         """Common handling for discovered devices."""
-        # Entries created before serials were stored match by IP only —
-        # don't offer a duplicate of an already-configured shade.
-        self._async_abort_entries_match({"ip": ip})
-
         await self.async_set_unique_id(str(serial))
         updates = {"ip": ip}
         if self._discovered_mac:
@@ -193,13 +187,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle reconfiguration: fix the IP after a DHCP change.
-
-        This also backfills the serial number into the entry's data
-        (and sets the entry's unique_id if it wasn't set yet), so
-        entries set up before serials were stored show a "Serial
-        number" on their device page just like newly-created entries.
-        """
+        """Handle reconfiguration: fix the IP after a DHCP change."""
         reconfigure_entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
 
@@ -210,23 +198,15 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
             except ValueError:
                 errors["ip"] = "invalid_ip"
             else:
-                try:
-                    info = await async_get_device_info(ip)
-                except PowerShadesTimeoutError:
-                    errors["base"] = "cannot_connect"
+                if ip == reconfigure_entry.data["ip"]:
+                    errors["ip"] = "same_ip"
                 else:
-                    serial = str(info["serial"])
-                    # A real serial-based unique_id is a digit string. Older
-                    # versions used unique_id=None (no probe at all) or a
-                    # "manual_<ip>" placeholder (probe didn't return a
-                    # serial) - both are treated as legacy and eligible for
-                    # migration to a real serial below, instead of
-                    # producing a false wrong_device error.
-                    has_serial_unique_id = (
-                        reconfigure_entry.unique_id is not None
-                        and reconfigure_entry.unique_id.isdigit()
-                    )
-                    if has_serial_unique_id:
+                    try:
+                        info = await async_get_device_info(ip)
+                    except PowerShadesTimeoutError:
+                        errors["base"] = "cannot_connect"
+                    else:
+                        serial = str(info["serial"])
                         if reconfigure_entry.unique_id != serial:
                             _LOGGER.debug(
                                 "Reconfigure mismatch for %s: entry unique_id=%s, "
@@ -247,25 +227,6 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
                                     "model": info["model"],
                                 },
                             )
-                    else:
-                        for entry in self._async_current_entries(include_ignore=False):
-                            if (
-                                entry.entry_id != reconfigure_entry.entry_id
-                                and entry.unique_id == serial
-                            ):
-                                errors["base"] = "already_configured"
-                                break
-                        else:
-                            return self.async_update_reload_and_abort(
-                                reconfigure_entry,
-                                unique_id=serial,
-                                data_updates={
-                                    "ip": ip,
-                                    "serial": info["serial"],
-                                    "name": info["name"],
-                                    "model": info["model"],
-                                },
-                            )
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -279,8 +240,6 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
         self, ip: str, errors: dict[str, str]
     ) -> ConfigFlowResult | None:
         """Probe the device and create the entry, or record an error."""
-        self._async_abort_entries_match({"ip": ip})
-
         try:
             info = await async_get_device_info(ip)
         except PowerShadesTimeoutError:

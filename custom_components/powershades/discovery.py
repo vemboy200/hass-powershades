@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.config_entries import SOURCE_INTEGRATION_DISCOVERY
 from homeassistant.core import HomeAssistant, callback
@@ -23,7 +24,7 @@ DISCOVERY_INTERVAL = timedelta(minutes=15)
 def async_start_discovery(hass: HomeAssistant) -> None:
     """Start periodic background discovery of PowerShades devices."""
 
-    async def _async_scan(*_) -> None:
+    async def _async_scan(*_: Any) -> None:
         devices = await async_discover_devices(hass)
         for device in devices:
             discovery_flow.async_create_flow(

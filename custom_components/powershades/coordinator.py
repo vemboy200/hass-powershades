@@ -120,6 +120,12 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         if self.serial_number:
             identifiers.add((DOMAIN, str(self.serial_number)))
 
+        model_name = (
+            MODEL_NAMES.get(self.model, "Motorized Window Cover")
+            if self.model is not None
+            else "Motorized Window Cover"
+        )
+
         return DeviceInfo(
             identifiers=identifiers,
             connections=(
@@ -129,7 +135,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             ),
             name=name,
             manufacturer="PowerShades",
-            model=MODEL_NAMES.get(self.model, "Motorized Window Cover"),
+            model=model_name,
             serial_number=str(self.serial_number) if self.serial_number else None,
         )
 

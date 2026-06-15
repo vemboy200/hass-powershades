@@ -14,7 +14,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
-from .coordinator import PowerShadesCoordinator
+from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,13 +25,15 @@ def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PowerShadesCoord
     """Resolve the coordinator for the entity targeted by a service call."""
     entity_id = call.data[ATTR_ENTITY_ID]
     entity = er.async_get(hass).async_get(entity_id)
-    if entity is None or entity.platform != DOMAIN:
+    if entity is None or entity.platform != DOMAIN or entity.config_entry_id is None:
         raise ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="entity_not_found",
             translation_placeholders={"entity_id": entity_id},
         )
-    entry = hass.config_entries.async_get_entry(entity.config_entry_id)
+    entry: PowerShadesConfigEntry | None = hass.config_entries.async_get_entry(
+        entity.config_entry_id
+    )
     if entry is None or entry.state is not ConfigEntryState.LOADED:
         raise HomeAssistantError(
             translation_domain=DOMAIN,

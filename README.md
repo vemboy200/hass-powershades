@@ -236,6 +236,12 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 - New devices discovered in the background that match an already-configured legacy entry (by IP) are now hidden from the picker instead of offering a duplicate setup
 - **Deprecation notice**: entries created before serial numbers were stored use an older identifier system (based on the entry's IP address, or in some very old entries an internal ID). Use the new "Reconfigure" option once on each such entry to migrate it to the serial-based system - note this will reset that entry's entities, so you may need to rename them and re-add them to dashboards/automations. Support for the old identifier system will be removed in v0.8.0; entries not migrated by then may need to be deleted and re-added
 
+### v0.8.0
+- **Breaking change**: removed support for the old IP-based identifier system described in the v0.6.0 deprecation notice. Entries that were never migrated via "Reconfigure" now fail reconfiguration with a "wrong device" error and should be deleted and re-added
+- The "Reconfigure" option now rejects submitting the shade's current IP address with a clear error, instead of silently doing nothing
+- Added Spanish and French translations
+- Integration now meets Home Assistant's Platinum quality scale (full strict typing with mypy)
+
 ### v0.7.0
 - Added a diagnostics download (Settings → Devices & Services → PowerShades → the entry → Download diagnostics), with the IP, MAC, serial number and unique ID redacted
 - If a shade doesn't respond when Home Assistant starts, a repair notification now explains the problem and points at the "Reconfigure" option in case its IP address changed

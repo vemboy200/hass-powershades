@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from homeassistant.config_entries import (
     SOURCE_DHCP,
     SOURCE_INTEGRATION_DISCOVERY,
@@ -81,10 +79,14 @@ async def test_manual_flow_invalid_ip(
 
 
 async def test_manual_flow_duplicate(
-    hass: HomeAssistant, mock_discover_devices
+    hass: HomeAssistant, mock_discover_devices, mock_device_info
 ) -> None:
-    """A shade with an already-configured IP cannot be added again."""
-    entry = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
+    """A shade that's already configured (by serial) cannot be added again."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": 12345, "name": "Bedroom Shade", "model": 1},
+        unique_id="12345",
+    )
     entry.add_to_hass(hass)
 
     result = await hass.config_entries.flow.async_init(
@@ -151,25 +153,6 @@ async def test_discovery_hides_already_configured_devices(
     assert TEST_IP not in result["data_schema"].schema["device"].container
 
 
-async def test_discovery_hides_legacy_entry_by_ip(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """A device matching a legacy entry (no stored serial) is hidden too."""
-    legacy = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
-    legacy.add_to_hass(hass)
-
-    with patch(
-        "custom_components.powershades.config_flow.async_discover_devices",
-        return_value=[{"ip": TEST_IP, "serial": 12345, "model": 1}],
-    ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": SOURCE_USER}
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "manual"
-
-
 async def test_dhcp_discovery(
     hass: HomeAssistant, mock_device_info, mock_setup_entry
 ) -> None:
@@ -220,27 +203,10 @@ async def test_background_discovery_already_configured(
     assert result["reason"] == "already_configured"
 
 
-async def test_background_discovery_legacy_entry_same_ip(
+async def test_reconfigure_same_ip_rejected(
     hass: HomeAssistant, mock_device_info, mock_setup_entry
 ) -> None:
-    """Background discovery of a legacy entry's device (same IP) aborts."""
-    legacy = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
-    legacy.add_to_hass(hass)
-
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": SOURCE_INTEGRATION_DISCOVERY},
-        data={"ip": TEST_IP, "serial": 12345, "model": 1},
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "already_configured"
-
-
-async def test_reconfigure_same_ip(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """Reconfiguring a modern entry with the same IP just refreshes metadata."""
+    """Reconfiguring with the shade's current IP address is rejected."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": 12345, "name": "Bedroom Shade", "model": 1},
@@ -256,64 +222,10 @@ async def test_reconfigure_same_ip(
         result["flow_id"], {"ip": TEST_IP}
     )
 
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    assert result["errors"] == {"ip": "same_ip"}
     assert entry.data["ip"] == TEST_IP
-
-
-async def test_reconfigure_backfills_missing_serial(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """An entry with unique_id but no stored "serial" gets it backfilled.
-
-    Some entries ended up with a unique_id set (from an earlier probe)
-    but no "serial" key in their data, so their device page never
-    showed a "Serial number". Reconfiguring fixes this.
-    """
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={"ip": TEST_IP, "name": "Bedroom Shade", "model": 1},
-        unique_id="12345",
-    )
-    entry.add_to_hass(hass)
-
-    result = await entry.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"ip": TEST_IP}
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
-    assert entry.data["serial"] == 12345
-
-
-async def test_reconfigure_manual_placeholder_migration(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """An entry with a "manual_<ip>" placeholder unique_id gets migrated.
-
-    The very first version of the config flow used unique_id =
-    f"manual_{ip.replace('.', '_')}" when the initial probe didn't return a
-    serial. These entries are functionally legacy - they should be migrated
-    to a real serial-based unique_id on reconfigure, not flagged as
-    wrong_device.
-    """
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={"ip": TEST_IP, "name": "Bedroom Shade", "model": 1},
-        unique_id=f"manual_{TEST_IP.replace('.', '_')}",
-    )
-    entry.add_to_hass(hass)
-
-    result = await entry.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"ip": TEST_IP}
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
-    assert entry.unique_id == "12345"
-    assert entry.data["serial"] == 12345
 
 
 async def test_reconfigure_ip_changed(
@@ -361,49 +273,6 @@ async def test_reconfigure_wrong_device(
     assert entry.data["ip"] == TEST_IP
 
 
-async def test_reconfigure_legacy_migration(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """Reconfiguring a legacy entry backfills its serial and unique_id."""
-    legacy = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
-    legacy.add_to_hass(hass)
-
-    result = await legacy.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"ip": TEST_IP}
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
-    assert legacy.unique_id == "12345"
-    assert legacy.data["serial"] == 12345
-    assert legacy.data["name"] == "Bedroom Shade"
-
-
-async def test_reconfigure_legacy_collision(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """A legacy entry can't be migrated to a serial another entry already owns."""
-    other = MockConfigEntry(
-        domain=DOMAIN,
-        data={"ip": "192.168.1.99", "serial": 12345, "name": "Other", "model": 1},
-        unique_id="12345",
-    )
-    other.add_to_hass(hass)
-    legacy = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
-    legacy.add_to_hass(hass)
-
-    result = await legacy.start_reconfigure_flow(hass)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"ip": TEST_IP}
-    )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "reconfigure"
-    assert result["errors"] == {"base": "already_configured"}
-    assert legacy.unique_id is None
-
-
 async def test_reconfigure_invalid_ip(
     hass: HomeAssistant, mock_device_info, mock_setup_entry
 ) -> None:
@@ -449,32 +318,3 @@ async def test_reconfigure_cannot_connect(
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
     assert result["errors"] == {"base": "cannot_connect"}
-
-
-@pytest.mark.xfail(
-    reason=(
-        "Known limitation: a legacy entry (no stored serial/unique_id) "
-        "can't be matched by background discovery once its IP also "
-        "changes, since neither the IP nor unique_id check can find it. "
-        "Creates a duplicate entry instead of aborting. The reconfigure "
-        "flow provides a manual workaround (backfills the serial and "
-        "updates the IP), but background discovery isn't fixed yet."
-    ),
-    strict=True,
-)
-async def test_background_discovery_legacy_entry_ip_changed(
-    hass: HomeAssistant, mock_device_info, mock_setup_entry
-) -> None:
-    """Background discovery of a legacy entry's device after a DHCP IP change."""
-    legacy = MockConfigEntry(domain=DOMAIN, data={"ip": TEST_IP})
-    legacy.add_to_hass(hass)
-
-    new_ip = "192.168.1.51"
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": SOURCE_INTEGRATION_DISCOVERY},
-        data={"ip": new_ip, "serial": 12345, "model": 1},
-    )
-
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "already_configured"

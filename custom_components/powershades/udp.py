@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from typing import TypedDict
 
 from homeassistant.components import network
 from homeassistant.core import HomeAssistant
@@ -36,6 +37,22 @@ _LOGGER = logging.getLogger(__name__)
 BROADCAST_IP = "255.255.255.255"
 
 
+class DiscoveredDevice(TypedDict):
+    """A device found via UDP broadcast discovery."""
+
+    ip: str
+    serial: int
+    model: int
+
+
+class PowerShadesDeviceInfo(TypedDict):
+    """Information probed from a device during config flow validation."""
+
+    serial: int
+    name: str | None
+    model: int
+
+
 class PowerShadesTimeoutError(Exception):
     """The device did not reply in time."""
 
@@ -51,11 +68,13 @@ class _PowerShadesProtocol(asyncio.DatagramProtocol):
         # so at most one request per op is pending at a time.
         self.pending: dict[int, asyncio.Future[bytes]] = {}
 
-    def datagram_received(self, data: bytes, addr) -> None:
+    def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         if not verify_packet(data):
             _LOGGER.debug("Dropping invalid packet from %s: %s", addr[0], data.hex())
             return
         header = parse_header(data)
+        if header is None:
+            return
         _LOGGER.debug(
             "Received op=0x%02X seq=%d from %s: %s",
             header.op,
@@ -111,6 +130,8 @@ class PowerShadesConnection:
 
     def _send(self, op: int, sequence: int, payload: bytes = b"") -> None:
         """Send one packet."""
+        if self._transport is None:
+            raise PowerShadesTimeoutError("Connection is closed")
         packet = build_packet(op, sequence, payload=payload)
         self._transport.sendto(packet, (self._host, UDP_PORT))
         _LOGGER.debug(
@@ -167,10 +188,10 @@ class PowerShadesConnection:
 class _DiscoveryProtocol(asyncio.DatagramProtocol):
     """Collects Get Serial replies during broadcast discovery."""
 
-    def __init__(self, results: dict[str, dict]) -> None:
+    def __init__(self, results: dict[str, DiscoveredDevice]) -> None:
         self._results = results
 
-    def datagram_received(self, data: bytes, addr) -> None:
+    def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         if not verify_packet(data):
             _LOGGER.debug("Dropping invalid discovery reply from %s", addr[0])
             return
@@ -191,10 +212,10 @@ class _DiscoveryProtocol(asyncio.DatagramProtocol):
 
 async def async_discover_devices(
     hass: HomeAssistant, timeout: float = DISCOVERY_TIMEOUT
-) -> list[dict]:
+) -> list[DiscoveredDevice]:
     """Discover PowerShades devices via UDP broadcast on all adapters."""
     loop = asyncio.get_running_loop()
-    results: dict[str, dict] = {}
+    results: dict[str, DiscoveredDevice] = {}
     transports: list[asyncio.DatagramTransport] = []
     packet = build_packet(OP_GET_SERIAL, sequence=0x01)
 
@@ -232,7 +253,7 @@ async def async_discover_devices(
     return devices
 
 
-async def async_get_device_info(ip_address: str) -> dict:
+async def async_get_device_info(ip_address: str) -> PowerShadesDeviceInfo:
     """Probe a device for its serial number and name.
 
     Raises PowerShadesTimeoutError if the device does not answer the

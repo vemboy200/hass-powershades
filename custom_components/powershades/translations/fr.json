@@ -1,0 +1,99 @@
+{
+    "config": {
+        "flow_title": "{name}",
+        "step": {
+            "pick_device": {
+                "title": "Sélectionnez votre appareil PowerShades",
+                "data": {
+                    "device": "Appareil"
+                }
+            },
+            "manual": {
+                "title": "Se connecter à un appareil PowerShades",
+                "description": "Entrez l'adresse IP de votre appareil PowerShades.",
+                "data": {
+                    "ip": "Adresse IP"
+                }
+            },
+            "discovery_confirm": {
+                "title": "Appareil PowerShades découvert",
+                "description": "Voulez-vous configurer {name} ({ip}) ?"
+            },
+            "reconfigure": {
+                "title": "Reconfigurer l'appareil PowerShades",
+                "description": "Mettez à jour l'adresse IP si elle a changé (par exemple après une réattribution DHCP).",
+                "data": {
+                    "ip": "Adresse IP"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "L'appareil n'a pas répondu. Vérifiez l'adresse IP et assurez-vous que le store est actif.",
+            "invalid_ip": "Adresse IPv4 invalide",
+            "wrong_device": "L'appareil à cette adresse IP est un store différent de celui configuré ici",
+            "same_ip": "Il s'agit déjà de l'adresse IP configurée pour ce store"
+        },
+        "abort": {
+            "already_configured": "L'appareil est déjà configuré",
+            "cannot_connect": "L'appareil n'a pas répondu à une vérification PowerShades",
+            "reconfigure_successful": "La reconfiguration a réussi"
+        }
+    },
+    "issues": {
+        "cannot_connect": {
+            "title": "{name} ne répond pas",
+            "description": "Home Assistant n'a pas pu se connecter au store PowerShades \"{name}\" à {ip}.\n\nAssurez-vous que le store est allumé et connecté au réseau, puis rechargez l'intégration. Si son adresse IP a changé, ouvrez l'entrée PowerShades de l'appareil, sélectionnez **Reconfigurer** et saisissez la nouvelle adresse IP."
+        }
+    },
+    "exceptions": {
+        "entity_not_found": {
+            "message": "{entity_id} n'est pas une entité PowerShades."
+        },
+        "entry_not_loaded": {
+            "message": "L'entrée de configuration PowerShades pour {entity_id} n'est pas chargée."
+        },
+        "invalid_shade_name": {
+            "message": "Le nom du store doit comporter entre 1 et 50 caractères ASCII."
+        },
+        "command_not_acknowledged": {
+            "message": "Le store à {ip_address} n'a pas confirmé la commande."
+        },
+        "rename_not_confirmed": {
+            "message": "Le store à {ip_address} n'a pas confirmé son nouveau nom."
+        },
+        "rename_empty_name": {
+            "message": "Le store à {ip_address} a renvoyé un nom vide."
+        }
+    },
+    "entity": {
+        "button": {
+            "toggle": {
+                "name": "Basculer le store"
+            },
+            "identify": {
+                "name": "Identifier"
+            },
+            "jog_up": {
+                "name": "Avancer vers le haut"
+            },
+            "jog_down": {
+                "name": "Avancer vers le bas"
+            },
+            "set_upper_limit": {
+                "name": "Définir la limite supérieure"
+            },
+            "set_lower_limit": {
+                "name": "Définir la limite inférieure"
+            },
+            "clear_limits": {
+                "name": "Effacer les limites"
+            },
+            "step_up": {
+                "name": "Pas vers le haut"
+            },
+            "step_down": {
+                "name": "Pas vers le bas"
+            }
+        }
+    }
+}

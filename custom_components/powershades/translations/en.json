@@ -31,7 +31,7 @@
             "cannot_connect": "The device did not respond. Check the IP address and make sure the shade is awake.",
             "invalid_ip": "Invalid IPv4 address",
             "wrong_device": "The device at this IP address is a different shade than the one configured here",
-            "already_configured": "Another entry is already configured for this device"
+            "same_ip": "This is already this shade's configured IP address"
         },
         "abort": {
             "already_configured": "Device is already configured",

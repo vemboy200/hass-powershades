@@ -137,8 +137,9 @@ rules:
     icons are static (mdi:* set in code), there's nothing state-dependent to translate
   reconfiguration-flow: done
   comment: |
-    async_step_reconfigure lets the user update the IP after a DHCP change, and
-    backfills/migrates the serial-based unique_id for legacy entries
+    async_step_reconfigure lets the user update the IP after a DHCP change;
+    rejects the entry's current IP and verifies the probed serial still
+    matches the entry's unique_id
   repair-issues: done
   comment: |
     a repair issue is created if the config entry fails its first refresh
@@ -154,6 +155,7 @@ rules:
   inject-websession: exempt
   comment: |
     uses UDP, not http(s), so there's no aiohttp session to inject
-  strict-typing: todo
+  strict-typing: done
   comment: |
-    code is well typed throughout, but no py.typed marker or mypy strict config yet
+    py.typed marker present, mypy strict config in pyproject.toml, and the
+    integration passes `mypy --strict` cleanly

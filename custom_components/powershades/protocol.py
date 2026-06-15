@@ -11,8 +11,19 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
+from typing import TypedDict
 
 from .const import OP_GET_STATUS
+
+
+class SerialReply(TypedDict):
+    """Parsed Get Serial Number reply."""
+
+    model: int
+    direction: int
+    serial: int
+    dhcp_enabled: bool
+
 
 HEADER_SIZE = 8
 
@@ -351,7 +362,7 @@ def verify_packet(data: bytes) -> bool:
     return crc16_xmodem(data[4 : HEADER_SIZE + header.length]) == header.crc
 
 
-def parse_serial_reply(data: bytes) -> dict | None:
+def parse_serial_reply(data: bytes) -> SerialReply | None:
     """Parse a Get Serial Number reply packet.
 
     Payload layout (after the 8-byte header): Model(1) Pad1(1) Pad2(1)
