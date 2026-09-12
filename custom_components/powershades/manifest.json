@@ -23,7 +23,6 @@
     "issue_tracker": "https://github.com/dstocking/powershades-homeassistant/issues",
     "quality_scale": "platinum",
     "requirements": [
-        "getmac==0.9.5",
         "pyowershades==0.2.0"
     ],
     "version": "0.8.0"

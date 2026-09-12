@@ -25,7 +25,7 @@ rules:
     manual entry, active discovery, dhcp discovery and reconfiguration via rediscovery all implemented
   dependency-transparency: done
   comment: |
-    getmac dependency declared in manifest requirements, network dependency declared
+    network dependency declared; no other external requirements besides pyowershades
   docs-actions: done
   comment: |
     services.yaml documents all actions with descriptions and fields

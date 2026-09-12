@@ -99,7 +99,6 @@ async def test_setup_entry_clears_cannot_connect_issue(hass: HomeAssistant) -> N
             AsyncMock(side_effect=fake_request),
         ),
         patch.object(PowerShadesConnection, "close"),
-        patch("custom_components.powershades.get_mac_address", return_value=None),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -122,8 +121,8 @@ async def test_unload_entry(hass: HomeAssistant, config_entry) -> None:
     PowerShadesConnection.close.assert_called_once()
 
 
-async def test_setup_entry_fills_in_missing_metadata(hass: HomeAssistant) -> None:
-    """A first-time setup with no stored MAC/model fills them in."""
+async def test_setup_entry_fills_in_missing_model(hass: HomeAssistant) -> None:
+    """A first-time setup with no stored model backfills it."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME},
@@ -151,13 +150,8 @@ async def test_setup_entry_fills_in_missing_metadata(hass: HomeAssistant) -> Non
             AsyncMock(side_effect=fake_request),
         ),
         patch.object(PowerShadesConnection, "close"),
-        patch(
-            "custom_components.powershades.get_mac_address",
-            return_value="AA:BB:CC:DD:EE:FF",
-        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
     assert entry.data["model"] == 1
-    assert entry.data["mac"] == "aa:bb:cc:dd:ee:ff"

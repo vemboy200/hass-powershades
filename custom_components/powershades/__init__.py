@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import logging
 
-from getmac import get_mac_address
-
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.typing import ConfigType
 
 from pyowershades import (
@@ -33,41 +30,35 @@ PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.COVER, Platform.S
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-async def _async_update_device_metadata(
+async def _async_backfill_model(
     hass: HomeAssistant,
     entry: PowerShadesConfigEntry,
     coordinator: PowerShadesCoordinator,
 ) -> None:
-    """Fill in MAC and model metadata missing from the entry.
+    """Backfill the model for entries that predate it being stored.
 
     Called right after a successful first refresh, so the device is
-    known reachable and the ARP cache is warm from the UDP exchange.
-    Best-effort: silently keeps the entry unchanged on lookup failure.
+    known reachable. Best-effort: silently keeps the entry unchanged on
+    lookup failure. The MAC address isn't backfilled this way - it's
+    only ever known when a device is found via DHCP discovery, which
+    already carries the sender's MAC for free.
     """
-    updates: dict[str, str | int] = {}
-
-    mac = await hass.async_add_executor_job(
-        lambda: get_mac_address(ip=entry.data["ip"])
+    if entry.data.get("model") is not None:
+        return
+    try:
+        reply = await coordinator.connection.async_request(OP_GET_SERIAL)
+    except PowerShadesTimeoutError:
+        return
+    parsed = parse_serial_reply(reply) if reply else None
+    if parsed is None:
+        return
+    coordinator.model = parsed["model"]
+    _LOGGER.debug(
+        "Backfilled model for shade %s: %s", entry.data["ip"], parsed["model"]
     )
-    if mac and mac != "00:00:00:00:00:00":
-        mac = format_mac(mac)
-        coordinator.mac_address = mac
-        if mac != entry.data.get("mac"):
-            updates["mac"] = mac
-
-    if entry.data.get("model") is None:
-        try:
-            reply = await coordinator.connection.async_request(OP_GET_SERIAL)
-        except PowerShadesTimeoutError:
-            reply = None
-        parsed = parse_serial_reply(reply) if reply else None
-        if parsed is not None:
-            coordinator.model = parsed["model"]
-            updates["model"] = parsed["model"]
-
-    if updates:
-        _LOGGER.debug("Updating metadata for shade %s: %s", entry.data["ip"], updates)
-        hass.config_entries.async_update_entry(entry, data={**entry.data, **updates})
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "model": parsed["model"]}
+    )
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -108,7 +99,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.runtime_data = coordinator
     entry.async_on_unload(connection.close)
 
-    await _async_update_device_metadata(hass, entry, coordinator)
+    await _async_backfill_model(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
