@@ -150,8 +150,12 @@ async def test_discovery_hides_already_configured_devices(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "pick_device"
-    assert new_ip in result["data_schema"].schema["device"].container
-    assert TEST_IP not in result["data_schema"].schema["device"].container
+    offered_ips = {
+        option["value"]
+        for option in result["data_schema"].schema["device"].config["options"]
+    }
+    assert new_ip in offered_ips
+    assert TEST_IP not in offered_ips
 
 
 async def test_dhcp_discovery(

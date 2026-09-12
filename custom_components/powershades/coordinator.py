@@ -6,6 +6,7 @@ import logging
 import time
 from dataclasses import dataclass, replace
 from datetime import timedelta
+from typing import override
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -57,7 +58,7 @@ POSITION_TOLERANCE = 2
 # motor ramp-up time and the gap before the first status push.
 STUCK_TIMEOUT = 15
 
-PowerShadesConfigEntry = ConfigEntry["PowerShadesCoordinator"]
+type PowerShadesConfigEntry = ConfigEntry[PowerShadesCoordinator]
 
 
 @dataclass(frozen=True)
@@ -186,17 +187,27 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         """Handle a status packet (runs on the event loop)."""
         self.async_set_updated_data(self._data_from_status(status))
 
+    @override
     async def _async_update_data(self) -> PowerShadesData:
         """Poll the device for status."""
         try:
             raw = await self.connection.async_request(OP_GET_STATUS)
         except PowerShadesTimeoutError as err:
             raise UpdateFailed(
-                f"Shade at {self.ip_address} did not reply: {err}"
+                translation_domain=DOMAIN,
+                translation_key="update_timeout",
+                translation_placeholders={
+                    "ip_address": self.ip_address,
+                    "error": str(err),
+                },
             ) from err
         status = parse_status_reply(raw)
         if status is None:
-            raise UpdateFailed(f"Malformed status reply from {self.ip_address}")
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="update_malformed_reply",
+                translation_placeholders={"ip_address": self.ip_address},
+            )
         data = self._data_from_status(status)
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)

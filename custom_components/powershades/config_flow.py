@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from typing import Any
+from typing import Any, override
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.helpers import selector
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
@@ -40,6 +41,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_mac: str | None = None
         self._discovered_model: int | None = None
 
+    @override
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -73,15 +75,26 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
             if result is not None:
                 return result
 
-        choices = {
-            ip: f"{ip} (Serial: {device['serial']})"
+        options = [
+            selector.SelectOptionDict(
+                value=ip, label=f"{ip} (Serial: {device['serial']})"
+            )
             for ip, device in self._discovered.items()
-        }
-        choices[MANUAL_ENTRY] = "Enter IP address manually"
+        ]
+        options.append(selector.SelectOptionDict(value=MANUAL_ENTRY, label="manual"))
 
         return self.async_show_form(
             step_id="pick_device",
-            data_schema=vol.Schema({vol.Required("device"): vol.In(choices)}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("device"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options,
+                            translation_key="device",
+                        )
+                    )
+                }
+            ),
             errors=errors,
         )
 
@@ -108,6 +121,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    @override
     async def async_step_integration_discovery(
         self, discovery_info: dict[str, Any]
     ) -> ConfigFlowResult:
@@ -117,6 +131,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
             discovery_info["ip"], discovery_info["serial"]
         )
 
+    @override
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
     ) -> ConfigFlowResult:
@@ -146,11 +161,12 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._discovered_name is None:
             try:
                 info = await async_get_device_info(ip)
+            except PowerShadesTimeoutError:
+                self._discovered_name = None
+            else:
                 self._discovered_name = info["name"]
                 if self._discovered_model is None:
                     self._discovered_model = info["model"]
-            except PowerShadesTimeoutError:
-                self._discovered_name = None
 
         self.context["title_placeholders"] = {
             "name": self._discovered_name or ip,

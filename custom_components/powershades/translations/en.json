@@ -63,6 +63,19 @@
         },
         "rename_empty_name": {
             "message": "Shade at {ip_address} returned an empty name."
+        },
+        "update_timeout": {
+            "message": "Shade at {ip_address} did not reply: {error}"
+        },
+        "update_malformed_reply": {
+            "message": "Malformed status reply from {ip_address}"
+        }
+    },
+    "selector": {
+        "device": {
+            "options": {
+                "manual": "Enter IP address manually"
+            }
         }
     },
     "entity": {

@@ -63,6 +63,19 @@
         },
         "rename_empty_name": {
             "message": "La persiana en {ip_address} devolvió un nombre vacío."
+        },
+        "update_timeout": {
+            "message": "La persiana en {ip_address} no respondió: {error}"
+        },
+        "update_malformed_reply": {
+            "message": "Respuesta de estado con formato incorrecto de {ip_address}"
+        }
+    },
+    "selector": {
+        "device": {
+            "options": {
+                "manual": "Introducir dirección IP manualmente"
+            }
         }
     },
     "entity": {

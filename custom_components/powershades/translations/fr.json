@@ -63,6 +63,19 @@
         },
         "rename_empty_name": {
             "message": "Le store à {ip_address} a renvoyé un nom vide."
+        },
+        "update_timeout": {
+            "message": "Le store à {ip_address} n'a pas répondu : {error}"
+        },
+        "update_malformed_reply": {
+            "message": "Réponse d'état mal formée de {ip_address}"
+        }
+    },
+    "selector": {
+        "device": {
+            "options": {
+                "manual": "Saisir l'adresse IP manuellement"
+            }
         }
     },
     "entity": {
