@@ -22,9 +22,7 @@ async def test_cover_initial_state(hass: HomeAssistant, config_entry) -> None:
 async def test_cover_closed_state(hass: HomeAssistant, config_entry) -> None:
     """A position of 0 is reported as closed."""
     coordinator = config_entry.runtime_data
-    coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=0, target_position=None)
-    )
+    coordinator.async_set_updated_data(coordinator_module.PowerShadesData(position=0))
     await hass.async_block_till_done()
 
     state = hass.states.get(ENTITY_ID)
@@ -32,10 +30,10 @@ async def test_cover_closed_state(hass: HomeAssistant, config_entry) -> None:
 
 
 async def test_cover_opening_state(hass: HomeAssistant, config_entry) -> None:
-    """A target above the current position is reported as opening."""
+    """motor_state 1/2 (moving up) is reported as opening."""
     coordinator = config_entry.runtime_data
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=50, target_position=100)
+        coordinator_module.PowerShadesData(position=50, motor_state=2)
     )
     await hass.async_block_till_done()
 
@@ -44,10 +42,10 @@ async def test_cover_opening_state(hass: HomeAssistant, config_entry) -> None:
 
 
 async def test_cover_closing_state(hass: HomeAssistant, config_entry) -> None:
-    """A target below the current position is reported as closing."""
+    """motor_state 11/12 (moving down) is reported as closing."""
     coordinator = config_entry.runtime_data
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=50, target_position=0)
+        coordinator_module.PowerShadesData(position=50, motor_state=12)
     )
     await hass.async_block_till_done()
 

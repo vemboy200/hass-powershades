@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import override
@@ -53,15 +52,6 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-# Within this distance of the target the shade counts as arrived
-POSITION_TOLERANCE = 2
-
-# How long the reported position can stay unchanged while heading to a
-# target before the shade is considered stopped (e.g. by an external
-# controller or a physical obstruction). Generous enough to absorb the
-# motor ramp-up time and the gap before the first status push.
-STUCK_TIMEOUT = 15
-
 type PowerShadesConfigEntry = ConfigEntry[PowerShadesCoordinator]
 
 
@@ -72,8 +62,8 @@ class PowerShadesData:
     position: int | None = None
     battery_mv: int | None = None
     battery_percentage: int | None = None
-    target_position: int | None = None
     io_green_led: bool | None = None
+    motor_state: int | None = None
 
 
 class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
@@ -95,9 +85,6 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         self.device_name = entry.data.get("name")
         self.mac_address: str | None = entry.data.get("mac")
         self.model: int | None = entry.data.get("model")
-        self._target_position: int | None = None
-        self._last_position: int | None = None
-        self._last_change_time: float | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -146,46 +133,15 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         )
 
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
-        now = time.monotonic()
-        position = status.position
-        if position is not None:
-            if (
-                self._target_position is not None
-                and abs(position - self._target_position) <= POSITION_TOLERANCE
-            ):
-                # Reached the target, whether it was set by Home Assistant
-                # or inferred below from an externally-initiated move.
-                self._target_position = None
-                self._last_change_time = None
-            elif self._last_position is not None and position != self._last_position:
-                moving_up = position > self._last_position
-                if self._target_position is None or (
-                    (self._target_position > self._last_position) != moving_up
-                ):
-                    # No active target, or the shade just reversed
-                    # direction (an external controller doesn't tell us
-                    # its real target) - assume it's heading toward the
-                    # natural limit in the observed direction.
-                    self._target_position = 100 if moving_up else 0
-                self._last_change_time = now
-            elif (
-                self._target_position is not None
-                and self._last_change_time is not None
-                and now - self._last_change_time >= STUCK_TIMEOUT
-            ):
-                # Position hasn't moved for a while even though we think
-                # the shade is heading to a target - an external
-                # controller or a physical obstruction stopped it. Stop
-                # reporting opening/closing.
-                self._target_position = None
-                self._last_change_time = None
-        self._last_position = position
+        # Status pushes only carry position/battery - the Get Debug Info
+        # fields (io_green_led, motor_state) are only refreshed by our own
+        # poll cycle, so carry the last known values forward here.
         return PowerShadesData(
-            position=position,
+            position=status.position,
             battery_mv=status.battery_mv,
             battery_percentage=battery_percentage(status.battery_mv),
-            target_position=self._target_position,
             io_green_led=self.data.io_green_led if self.data is not None else None,
+            motor_state=self.data.motor_state if self.data is not None else None,
         )
 
     @callback
@@ -218,24 +174,21 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)
 
-        # Best-effort: the green LED is a diagnostic extra, not worth
-        # failing the whole update (and marking the cover unavailable)
-        # over if this second request times out.
+        # Best-effort: the green LED and real motor state are extras, not
+        # worth failing the whole update (and marking the cover
+        # unavailable) over if this second request times out.
         try:
             debug_raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
         except PowerShadesTimeoutError:
             return data
         debug_info = parse_debug_info_reply(debug_raw)
         if debug_info is not None:
-            data = replace(data, io_green_led=debug_info.io_green_led)
+            data = replace(
+                data,
+                io_green_led=debug_info.io_green_led,
+                motor_state=debug_info.motor_state,
+            )
         return data
-
-    def _set_target(self, position: int | None) -> None:
-        """Update the movement target and notify entities immediately."""
-        self._target_position = position
-        self._last_change_time = time.monotonic() if position is not None else None
-        if self.data is not None:
-            self.async_set_updated_data(replace(self.data, target_position=position))
 
     async def _async_command(self, op: int, payload: bytes = b"") -> None:
         """Send a command and await the device's echo reply (ACK).
@@ -255,19 +208,13 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
     async def async_set_position(self, position: int) -> None:
         """Move the shade to a position (0=closed, 100=open)."""
-        self._set_target(position)
-        try:
-            await self._async_command(
-                OP_SET_POSITION, build_set_position_payload(position)
-            )
-        except HomeAssistantError:
-            self._set_target(None)
-            raise
+        await self._async_command(OP_SET_POSITION, build_set_position_payload(position))
+        # Refresh immediately so the real motor state (not just the next
+        # scheduled poll) reflects the move starting right away.
         await self.async_request_refresh()
 
     async def async_stop(self) -> None:
         """Stop shade movement."""
-        self._set_target(None)
         await self._async_command(OP_JOG_STOP)
         await self.async_request_refresh()
 
@@ -277,7 +224,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         if data is None or data.position is None:
             _LOGGER.warning("Cannot toggle shade %s: position unknown", self.ip_address)
             return
-        if data.target_position is not None:
+        if data.motor_state:
             await self.async_stop()
         elif data.position > 50:
             await self.async_set_position(0)

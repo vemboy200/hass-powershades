@@ -62,23 +62,20 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
 
     @property
     def is_opening(self) -> bool:
-        """Return if the cover is opening."""
-        data = self.coordinator.data
-        return (
-            data.target_position is not None
-            and data.position is not None
-            and data.target_position > data.position
-        )
+        """Return if the cover is opening.
+
+        motor_state is direction*10 + phase (e.g. 1/2 = moving up,
+        11/12 = moving down), reported directly by the device rather
+        than inferred from position deltas.
+        """
+        motor_state = self.coordinator.data.motor_state
+        return motor_state is not None and 0 < motor_state < 10
 
     @property
     def is_closing(self) -> bool:
         """Return if the cover is closing."""
-        data = self.coordinator.data
-        return (
-            data.target_position is not None
-            and data.position is not None
-            and data.target_position < data.position
-        )
+        motor_state = self.coordinator.data.motor_state
+        return motor_state is not None and motor_state >= 10
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""

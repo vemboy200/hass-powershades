@@ -73,12 +73,12 @@ def shade_name_packet(name: str) -> bytes:
     return build_packet(OP_GET_SHADE_NAME, payload=payload)
 
 
-def debug_info_packet(*, green_led: bool = False) -> bytes:
+def debug_info_packet(*, green_led: bool = False, motor_state: int = 0) -> bytes:
     """Build a Get Debug Info reply packet."""
     payload = struct.pack(
         "<8BHhhhiiiiiIIff50s6B",
         0,
-        0,
+        motor_state,
         0,
         0,
         0,

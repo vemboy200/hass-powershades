@@ -1,6 +1,6 @@
 """Tests for the PowerShades data update coordinator."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,6 +10,8 @@ from pyowershades import (
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_CLEAR_LIMITS,
+    OP_GET_DEBUG_INFO,
+    OP_GET_STATUS,
     OP_INDICATE,
     OP_JOG_DOWN,
     OP_JOG_STOP,
@@ -33,7 +35,7 @@ from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL
+from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, debug_info_packet, status_packet
 
 
 @pytest.fixture
@@ -49,141 +51,54 @@ def coordinator(hass, mock_connection):
     return PowerShadesCoordinator(hass, entry, connection)
 
 
-def test_data_from_status_no_target(coordinator) -> None:
-    """Without a movement target, status is passed through unchanged."""
+def test_data_from_status_basic(coordinator) -> None:
+    """A status packet is turned into position/battery data."""
     data = coordinator._data_from_status(StatusReply(position=42, battery_mv=3700))
     assert data.position == 42
     assert data.battery_mv == 3700
-    assert data.target_position is None
     assert data.battery_percentage is not None
 
 
-def test_target_reached_clears_target(coordinator) -> None:
-    """Arriving within tolerance of the target clears it."""
-    coordinator._set_target(50)
-    data = coordinator._data_from_status(StatusReply(position=51, battery_mv=3700))
-    assert data.target_position is None
-
-
-def test_unchanged_position_within_timeout_keeps_target(coordinator) -> None:
-    """A position that hasn't changed yet is not immediately marked stuck."""
-    times = [100.0, 100.0, 114.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._set_target(0)  # t=100, last_change=100
-        data = coordinator._data_from_status(
-            StatusReply(position=50, battery_mv=3700)
-        )  # t=100, first reading -> last_change=100
-        assert data.target_position == 0
-
-        data = coordinator._data_from_status(
-            StatusReply(position=50, battery_mv=3700)
-        )  # t=114, unchanged for 14s (< STUCK_TIMEOUT)
-        assert data.target_position == 0
-
-
-def test_stuck_position_clears_target_after_timeout(coordinator) -> None:
-    """A position unchanged for STUCK_TIMEOUT seconds clears the target."""
-    times = [100.0, 100.0, 116.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._set_target(0)  # t=100, last_change=100
-        coordinator._data_from_status(
-            StatusReply(position=50, battery_mv=3700)
-        )  # t=100, first reading -> last_change=100
-
-        data = coordinator._data_from_status(
-            StatusReply(position=50, battery_mv=3700)
-        )  # t=116, unchanged for 16s (>= STUCK_TIMEOUT)
-        assert data.target_position is None
-
-
-def test_continuous_movement_not_marked_stuck(coordinator) -> None:
-    """A position that keeps changing never gets marked stuck."""
-    times = [100.0, 100.0, 110.0, 120.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._set_target(0)
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        coordinator._data_from_status(StatusReply(position=40, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=30, battery_mv=3700))
-        assert data.target_position == 0
-
-
-def test_external_move_infers_opening_direction(coordinator) -> None:
-    """A position increase with no active target is inferred as opening."""
-    times = [100.0, 110.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=60, battery_mv=3700))
-        assert data.target_position == 100
-
-
-def test_external_move_infers_closing_direction(coordinator) -> None:
-    """A position decrease with no active target is inferred as closing."""
-    times = [100.0, 110.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=40, battery_mv=3700))
-        assert data.target_position == 0
-
-
-def test_external_move_clears_when_limit_reached(coordinator) -> None:
-    """An inferred external move clears once it reaches the natural limit."""
-    times = [100.0, 110.0, 115.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=90, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=99, battery_mv=3700))
-        assert data.target_position == 100
-
-        data = coordinator._data_from_status(StatusReply(position=100, battery_mv=3700))
-        assert data.target_position is None
-
-
-def test_external_move_clears_after_stuck_timeout(coordinator) -> None:
-    """An inferred external move that stalls is cleared after STUCK_TIMEOUT."""
-    times = [100.0, 110.0, 126.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=60, battery_mv=3700))
-        assert data.target_position == 100
-
-        data = coordinator._data_from_status(StatusReply(position=60, battery_mv=3700))
-        assert data.target_position is None
-
-
-def test_external_move_reversal_reinfers_direction(coordinator) -> None:
-    """An external move that reverses direction re-infers the new target."""
-    times = [100.0, 110.0, 115.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        data = coordinator._data_from_status(StatusReply(position=60, battery_mv=3700))
-        assert data.target_position == 100
-
-        data = coordinator._data_from_status(StatusReply(position=55, battery_mv=3700))
-        assert data.target_position == 0
-
-
-def test_ha_move_overridden_by_opposite_external_move(coordinator) -> None:
-    """If the shade moves opposite to a HA-issued target, infer the new direction."""
-    times = [100.0, 110.0, 115.0]
-    with patch.object(coordinator_module.time, "monotonic", side_effect=times):
-        coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
-        coordinator._set_target(100)
-
-        data = coordinator._data_from_status(StatusReply(position=40, battery_mv=3700))
-        assert data.target_position == 0
+def test_data_from_status_carries_forward_debug_info(coordinator) -> None:
+    """Status pushes don't carry io_green_led/motor_state - the last known
+    values (from the coordinator's own Debug Info poll) are kept."""
+    coordinator.async_set_updated_data(
+        coordinator_module.PowerShadesData(io_green_led=True, motor_state=2)
+    )
+    data = coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
+    assert data.io_green_led is True
+    assert data.motor_state == 2
 
 
 async def test_async_set_position_sends_command(coordinator) -> None:
-    """Setting a position sends a Set Position command and sets the target."""
+    """Setting a position sends a Set Position command."""
     await coordinator.async_set_position(75)
 
     coordinator.connection.async_request.assert_any_call(
         OP_SET_POSITION, build_set_position_payload(75)
     )
-    assert coordinator.data.target_position == 75
 
 
-async def test_async_set_position_failure_clears_target(coordinator) -> None:
-    """If the device doesn't ack the command, the target is cleared and raised."""
+async def test_async_set_position_refreshes_motor_state(coordinator) -> None:
+    """Setting a position refreshes immediately, picking up the real
+    motor state instead of waiting for the next scheduled poll."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet(position=50)
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(motor_state=1)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_set_position(100)
+
+    assert coordinator.data.motor_state == 1
+
+
+async def test_async_set_position_failure_raises(coordinator) -> None:
+    """If the device doesn't ack the command, the failure is raised."""
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         raise PowerShadesTimeoutError("no reply")
@@ -193,7 +108,6 @@ async def test_async_set_position_failure_clears_target(coordinator) -> None:
     with pytest.raises(HomeAssistantError) as exc_info:
         await coordinator.async_set_position(75)
 
-    assert coordinator._target_position is None
     assert exc_info.value.translation_domain == DOMAIN
     assert exc_info.value.translation_key == "command_not_acknowledged"
     assert exc_info.value.translation_placeholders == {
@@ -201,19 +115,17 @@ async def test_async_set_position_failure_clears_target(coordinator) -> None:
     }
 
 
-async def test_async_stop_clears_target(coordinator) -> None:
-    """Stopping the shade clears the movement target."""
-    coordinator._set_target(75)
+async def test_async_stop_sends_command(coordinator) -> None:
+    """Stopping the shade sends the jog stop command."""
     await coordinator.async_stop()
 
     coordinator.connection.async_request.assert_any_call(OP_JOG_STOP, b"")
-    assert coordinator.data.target_position is None
 
 
 async def test_async_toggle_stops_when_moving(coordinator) -> None:
     """Toggling a shade that's already moving stops it."""
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=50, target_position=75)
+        coordinator_module.PowerShadesData(position=50, motor_state=2)
     )
     await coordinator.async_toggle()
 
@@ -222,9 +134,7 @@ async def test_async_toggle_stops_when_moving(coordinator) -> None:
 
 async def test_async_toggle_closes_when_mostly_open(coordinator) -> None:
     """Toggling a shade that's more than half open closes it."""
-    coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=80, target_position=None)
-    )
+    coordinator.async_set_updated_data(coordinator_module.PowerShadesData(position=80))
     await coordinator.async_toggle()
 
     coordinator.connection.async_request.assert_any_call(
@@ -234,9 +144,7 @@ async def test_async_toggle_closes_when_mostly_open(coordinator) -> None:
 
 async def test_async_toggle_opens_when_mostly_closed(coordinator) -> None:
     """Toggling a shade that's at or below half open opens it."""
-    coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=20, target_position=None)
-    )
+    coordinator.async_set_updated_data(coordinator_module.PowerShadesData(position=20))
     await coordinator.async_toggle()
 
     coordinator.connection.async_request.assert_any_call(
@@ -247,7 +155,7 @@ async def test_async_toggle_opens_when_mostly_closed(coordinator) -> None:
 async def test_async_toggle_does_nothing_when_position_unknown(coordinator) -> None:
     """Toggling with an unknown position is a no-op."""
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(position=None, target_position=None)
+        coordinator_module.PowerShadesData(position=None)
     )
     await coordinator.async_toggle()
 
@@ -313,10 +221,11 @@ async def test_async_set_shade_name(coordinator) -> None:
     assert coordinator.device_name == TEST_NAME
 
 
-async def test_async_update_data_polls_status(coordinator) -> None:
-    """Polling fetches status and adjusts the update interval."""
+async def test_async_update_data_polls_status_and_debug_info(coordinator) -> None:
+    """Polling fetches status and debug info, adjusting the update interval."""
     data = await coordinator._async_update_data()
     assert data.position == 50
+    assert data.motor_state == 0
     assert coordinator.update_interval.total_seconds() == 10
 
 
@@ -331,3 +240,18 @@ async def test_async_update_data_raises_on_timeout(coordinator) -> None:
 
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+async def test_async_update_data_survives_debug_info_timeout(coordinator) -> None:
+    """A Debug Info timeout doesn't fail the whole update."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet(position=50)
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    data = await coordinator._async_update_data()
+    assert data.position == 50
+    assert data.motor_state is None
