@@ -106,6 +106,17 @@
             },
             "step_down": {
                 "name": "Step Down"
+            },
+            "reboot": {
+                "name": "Reboot"
+            },
+            "save_limits": {
+                "name": "Save Limits"
+            }
+        },
+        "binary_sensor": {
+            "green_led": {
+                "name": "Green LED"
             }
         }
     }

@@ -93,6 +93,20 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
         press_fn=lambda coordinator: coordinator.async_step_down(),
     ),
+    PowerShadesButtonDescription(
+        key="reboot",
+        translation_key="reboot",
+        device_class=ButtonDeviceClass.RESTART,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        press_fn=lambda coordinator: coordinator.async_reboot(),
+    ),
+    PowerShadesButtonDescription(
+        key="save_limits",
+        translation_key="save_limits",
+        icon="mdi:content-save-cog",
+        entity_category=EntityCategory.CONFIG,
+        press_fn=lambda coordinator: coordinator.async_save_limits(),
+    ),
 )
 
 

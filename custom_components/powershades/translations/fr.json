@@ -106,6 +106,17 @@
             },
             "step_down": {
                 "name": "Pas vers le bas"
+            },
+            "reboot": {
+                "name": "Redémarrer"
+            },
+            "save_limits": {
+                "name": "Enregistrer les limites"
+            }
+        },
+        "binary_sensor": {
+            "green_led": {
+                "name": "LED verte"
             }
         }
     }

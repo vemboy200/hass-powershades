@@ -14,6 +14,8 @@ from pyowershades import (
     OP_JOG_DOWN,
     OP_JOG_STOP,
     OP_JOG_UP,
+    OP_REBOOT,
+    OP_SAVE_LIMITS,
     OP_SET_LIMIT,
     OP_SET_POSITION,
     OP_STEP_DOWN,
@@ -291,6 +293,18 @@ async def test_async_step_up_and_down(coordinator) -> None:
 
     await coordinator.async_step_down()
     coordinator.connection.async_request.assert_any_call(OP_STEP_DOWN, b"")
+
+
+async def test_async_reboot(coordinator) -> None:
+    """Reboot sends the reboot command."""
+    await coordinator.async_reboot()
+    coordinator.connection.async_request.assert_any_call(OP_REBOOT, b"")
+
+
+async def test_async_save_limits(coordinator) -> None:
+    """Save Limits sends the save-limits command."""
+    await coordinator.async_save_limits()
+    coordinator.connection.async_request.assert_any_call(OP_SAVE_LIMITS, b"")
 
 
 async def test_async_set_shade_name(coordinator) -> None:

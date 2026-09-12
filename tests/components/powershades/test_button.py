@@ -12,6 +12,8 @@ from pyowershades import (
     OP_INDICATE,
     OP_JOG_DOWN,
     OP_JOG_UP,
+    OP_REBOOT,
+    OP_SAVE_LIMITS,
     OP_SET_LIMIT,
     OP_SET_POSITION,
     OP_STEP_DOWN,
@@ -32,6 +34,8 @@ from pyowershades import (
         ("clear_limits", (OP_CLEAR_LIMITS, b"")),
         ("step_up", (OP_STEP_UP, b"")),
         ("step_down", (OP_STEP_DOWN, b"")),
+        ("reboot", (OP_REBOOT, b"")),
+        ("save_limits", (OP_SAVE_LIMITS, b"")),
     ],
 )
 async def test_button_press_sends_command(

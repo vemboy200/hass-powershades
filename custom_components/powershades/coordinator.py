@@ -24,12 +24,15 @@ from pyowershades import (
     LIMIT_UPPER,
     MODEL_NAMES,
     OP_CLEAR_LIMITS,
+    OP_GET_DEBUG_INFO,
     OP_GET_SHADE_NAME,
     OP_GET_STATUS,
     OP_INDICATE,
     OP_JOG_DOWN,
     OP_JOG_STOP,
     OP_JOG_UP,
+    OP_REBOOT,
+    OP_SAVE_LIMITS,
     OP_SET_LIMIT,
     OP_SET_POSITION,
     OP_STEP_DOWN,
@@ -41,6 +44,7 @@ from pyowershades import (
     build_set_limit_payload,
     build_set_name_payload,
     build_set_position_payload,
+    parse_debug_info_reply,
     parse_shade_name_reply,
     parse_status_reply,
 )
@@ -69,6 +73,7 @@ class PowerShadesData:
     battery_mv: int | None = None
     battery_percentage: int | None = None
     target_position: int | None = None
+    io_green_led: bool | None = None
 
 
 class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
@@ -180,6 +185,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             battery_mv=status.battery_mv,
             battery_percentage=battery_percentage(status.battery_mv),
             target_position=self._target_position,
+            io_green_led=self.data.io_green_led if self.data is not None else None,
         )
 
     @callback
@@ -211,6 +217,17 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         data = self._data_from_status(status)
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)
+
+        # Best-effort: the green LED is a diagnostic extra, not worth
+        # failing the whole update (and marking the cover unavailable)
+        # over if this second request times out.
+        try:
+            debug_raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
+        except PowerShadesTimeoutError:
+            return data
+        debug_info = parse_debug_info_reply(debug_raw)
+        if debug_info is not None:
+            data = replace(data, io_green_led=debug_info.io_green_led)
         return data
 
     def _set_target(self, position: int | None) -> None:
@@ -295,6 +312,16 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         """Clear both limits."""
         await self._async_command(OP_CLEAR_LIMITS)
         _LOGGER.info("Cleared limits for %s", self.ip_address)
+
+    async def async_reboot(self) -> None:
+        """Reboot the shade's controller."""
+        await self._async_command(OP_REBOOT)
+        _LOGGER.info("Rebooted %s", self.ip_address)
+
+    async def async_save_limits(self) -> None:
+        """Persist the currently-set limits to the device's flash storage."""
+        await self._async_command(OP_SAVE_LIMITS)
+        _LOGGER.info("Saved limits for %s", self.ip_address)
 
     async def async_step_up(self) -> None:
         """Move the motor up one step (for trimming limits)."""

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from pyowershades import (
+    OP_GET_DEBUG_INFO,
     OP_GET_SHADE_NAME,
     OP_GET_STATUS,
     PowerShadesConnection,
@@ -72,6 +73,42 @@ def shade_name_packet(name: str) -> bytes:
     return build_packet(OP_GET_SHADE_NAME, payload=payload)
 
 
+def debug_info_packet(*, green_led: bool = False) -> bytes:
+    """Build a Get Debug Info reply packet."""
+    payload = struct.pack(
+        "<8BHhhhiiiiiIIff50s6B",
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,  # 8 leading status bytes
+        0,  # BatteryVoltage
+        0,
+        0,
+        0,  # target/current percent, motor duty cycle
+        0,
+        0,
+        0,
+        0,
+        0,  # hall counts
+        0,
+        0,  # velocity/desired RPM
+        0.0,
+        0.0,  # thermistor temp, motor current
+        b"\x00" * 50,  # error list
+        0,
+        int(green_led),
+        0,
+        0,
+        0,
+        0,  # LEDs / IO booleans
+    )
+    return build_packet(OP_GET_DEBUG_INFO, payload=payload)
+
+
 @pytest.fixture
 def mock_connection():
     """Mock the UDP connection so setup never touches real sockets."""
@@ -81,6 +118,8 @@ def mock_connection():
             return status_packet()
         if op == OP_GET_SHADE_NAME:
             return shade_name_packet(TEST_NAME)
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
         return build_packet(op)
 
     with (
