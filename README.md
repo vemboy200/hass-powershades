@@ -1,7 +1,9 @@
 # PowerShades Home Assistant Integration
-The Home Assistant Powershades integration allows to control your [Powershades](https://powershades.com) shades. This integration is only tested with PoE and Wi-Fi Powershades, so support with the RF hub may be limited or nonexistent.
+The Home Assistant Powershades integration allows to control your [Powershades](https://powershades.com) shades. This integration is tested with PoE Powershades controllers. The underlying protocol also recognizes an RF hub, but its behavior with Home Assistant hasn't been verified, since the maintainer doesn't have access to that hardware.
 
 If you have RF shades it is recommended you buy a [Bond Bridge](https://bondhome.io/) and connect your RF shades using that, then connect it to Home Assistant using the [built in integration](https://www.home-assistant.io/integrations/bond/). If you already have Powershade's RF Hub, please open an issue and report what the results are trying to connect the hub to Home Assistant using this integration.
+
+This integration shares its UDP protocol implementation with the [minimal cover-only version of PowerShades submitted to Home Assistant core](https://github.com/home-assistant/core/pull/173830), via the [pyowershades](https://pypi.org/project/pyowershades/) PyPI library. This custom integration is where the fuller feature set (buttons, sensors, diagnostics, services) lives while those land in core as follow-up PRs one at a time.
 
 ## How you can use this integration
 This intgeration can be used to control your Powershades shades, you can have it open in the morning to get you out of the bed, or close them at sunset for extra privacy. 
@@ -10,10 +12,13 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 ## Features
 
-- **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position)
-- **Button Platform**: Additional buttons for specific blind operations
+- **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state
+- **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
+- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default)
+- **Binary Sensor Platform**: Green LED status indicator (Diagnostic)
+- **Services**: Extra actions beyond the standard cover services — toggling, jogging, stepping, limit calibration, and renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
-- **Config Flow**: Easy setup through Home Assistant's UI
+- **Config Flow**: Easy setup through Home Assistant's UI, with automatic and DHCP discovery
 - **Local Control**: No cloud dependencies, works entirely locally
 
 ## Prerequisites
@@ -35,14 +40,14 @@ This integration can be installed via HACS as a custom repository:
 
 1. In HACS, go to **Settings** → **Repositories**
 2. Click the **+** button to add a new repository
-3. Enter the repository URL: `https://github.com/dstocking/powershades-homeassistant`
+3. Enter the repository URL: `https://github.com/vemboy200/hass-powershades`
 4. Select **Integration** as the category
 5. Click **Add**
 6. Once added, search for "PowerShades" in HACS
 7. Click **Download**
 8. Restart Home Assistant
 
-**Note**: This integration uses semantic versioning with proper GitHub releases. See the [Releases](https://github.com/dstocking/powershades-homeassistant/releases) page for the latest version.
+**Note**: This integration uses semantic versioning with proper GitHub releases. See the [Releases](https://github.com/vemboy200/hass-powershades/releases) page for the latest version.
 
 ### Manual Installation (not recommended)
 
@@ -51,7 +56,7 @@ This integration can be installed via HACS as a custom repository:
 3. Restart Home Assistant
 
 ## Supported Devices
-Any PoE and Wi-Fi Powershade shade or a Powershade RF hub with UDP communication enabled on the same local network as Home Assistant
+Any PoE Powershade shade with UDP communication enabled, on the same local network as Home Assistant.
 
 ⚠️ Note: The RF Powershades bridge is currently untested and may be unsupported. For RF Powershades, please use a [Bond Bridge](https://bondhome.io/).
 
@@ -80,11 +85,14 @@ Each shade also gets buttons for:
 
 - **Toggle Shade**: Open/close based on current position, or stop if moving
 - **Identify**: Makes the shade motor wiggle so you can tell which physical shade this is (under Diagnostic)
-- **Jog Up/Down, Set Upper/Lower Limit, Clear Limits, Step Up/Down**: Limit calibration tools (under the device's Configuration section). Typical workflow: jog near the desired position, step to fine-tune, then set the limit.
+- **Reboot**: Restarts the shade's controller (under Diagnostic)
+- **Jog Up/Down, Set Upper/Lower Limit, Clear Limits, Step Up/Down, Save Limits**: Limit calibration tools (under the device's Configuration section). Typical workflow: jog near the desired position, step to fine-tune, set the limit, then save it so it persists to the device's flash storage.
 
-### Diagnostic Sensors
+### Diagnostic Entities
 
 Battery percentage and battery voltage are available as diagnostic sensor entities (disabled by default — enable them from the device page). Note: in versions before 0.2.0 these values were exposed as attributes on the cover entity; templates referencing `battery_percentage`/`battery_voltage_mv` cover attributes should switch to the sensors.
+
+A Green LED binary sensor (enabled by default) mirrors the shade's physical status LED — useful since that LED can turn on unpredictably and isn't otherwise visible unless you're standing in front of the shade.
 
 ### Services
 
@@ -93,23 +101,22 @@ Besides the standard cover services, the integration provides `powershades.toggl
 
 ### Known Limitations
 
-- PowerShades devices send replies and asynchronous move feedback only to the **last controller that sent them a command** ("UDP master"). Avoid running PowerShades Config.NET or another driver at the same time as Home Assistant — control still works, but live position feedback may intermittently lag until the next poll.
+- PowerShades devices send replies and asynchronous move feedback only to the **last controller that sent them a command** (the "UDP subscriber"). Avoid running PowerShades Config.NET or another driver at the same time as Home Assistant — control still works, but live position feedback may intermittently lag until the next poll.
 - This will cause a problem with other hubs using the UDP communication (ex: Control4) that rely soley on the push data, to have the wrong state of the shade.
 Push data is sent every 10 seconds so updates are not instant
-- The shade's status (ex opening, closing, opened, closed, etc) is assumed by Home Assistant and may not be accurate. Read more in the data updates section about how the state of the shade is gotten.
-- This cuases a problem when a shade is moved by another controller (not Home Assistant), since the integration cannot know that controller's target position. It assumes the "Opening"/"Closing" state from the direction the reported position is moving, assuming it's heading toward fully open (100%) or fully closed (0%). If the other controller stops the shade partway, Home Assistant will keep showing the "Opening"/"Closing" state for up to ~15 seconds until it detects the position has stopped changing and falls back to "Open"/"Closed". Read more in the data updates section about how the state of the shade is gotten.
 - The shade must be on the same network subnet as Home Assistant, or UDP broadcast traffic must be routed between subnets.
-- Only PoE and Wi-Fi Shades are fully supported, so it is recommened that you connect your RF Powershades to Home Assistant using a Bond Bridge, and report what went wrong when adding your Powershades RF bridge.
+- Only PoE Shades are fully supported, so it is recommened that you connect your RF Powershades to Home Assistant using a Bond Bridge, and report what went wrong when adding your Powershades RF bridge.
 
 ### Data Updates
 
-The shade pushes its status to Home Assistant in real time whenever Home Assistant is the one controlling it ("UDP master"). On top of that, Home Assistant polls the shade every 10 seconds (every 5 seconds while the position is unknown) so that changes made by another controller — such as the PowerShades app or a Control4 system — are also picked up.
+The shade pushes its status to Home Assistant in real time whenever Home Assistant is the one controlling it (the "UDP subscriber"). On top of that, Home Assistant polls the shade every 10 seconds (every 5 seconds while the position is unknown) so that changes made by another controller — such as the PowerShades app or a Control4 system — are also picked up. Each poll cycle also makes a second, best-effort request (Get Debug Info) for the Green LED state and the real motor state used by the cover's opening/closing indication; if that second request times out the rest of the update still succeeds, just without refreshing those two values.
 
-Home Assistant's `iot_class` manifest field only allows a single value, and this integration declares `local_push`. In practice though, its behavior has something in common with all three of Home Assistant's relevant classifiers:
+Home Assistant's `iot_class` manifest field only allows a single value, and this integration declares `local_push`. In practice though, its behavior has something in common with both of Home Assistant's local classifiers:
 
-- **Local Push**: while Home Assistant is the "UDP master", the shade pushes its status roughly every 10 seconds on its own, and also sends an extra push the instant it reaches the position it was told to move to — so Home Assistant finds out a move finished without waiting for its next poll.
+- **Local Push**: while Home Assistant is the "UDP subscriber", the shade pushes its status roughly every 10 seconds on its own, and also sends an extra push the instant it reaches the position it was told to move to — so Home Assistant finds out a move finished without waiting for its next poll.
 - **Local Polling**: the 10-second poll is what catches position changes made by another controller — without it, those changes would go unnoticed until the next Home Assistant-issued command.
-- **Assumed State**: the shade only ever reports a raw position (0-100%). Home Assistant always infers whether that means "Opening", "Closing", "Open" or "Closed" from how the position changes over time — even for moves Home Assistant itself started. So the state shown is always an educated guess, which is a much better-informed one than the assumed states reported by one way RF/IR blind integrations.
+
+The cover's "Opening"/"Closing"/"Open"/"Closed" state is read directly from the device rather than guessed: `is_closed` comes straight from the reported position (0%), and the opening/closing indication comes from the shade's own `motor_state` field (idle, moving up, or moving down) obtained via Get Debug Info — no heuristic or position-delta guessing is involved.
 
 All communication is local and the data does not leave your house, which is kind of weird considering that in the offical Powershades app, all data goes through their cloud. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
 
@@ -154,7 +161,7 @@ mode: single
 
 ## Requirements
 
-- Home Assistant 2023.8.0 or newer (Latest version recommended however)
+- A recent version of Home Assistant — the latest is recommended. The integration relies on modern APIs (config entry `runtime_data`, PEP 695 type aliases) that older releases don't have.
 - PowerShades controller with UDP communication enabled
 
 ## Troubleshooting
@@ -169,7 +176,7 @@ mode: single
 
 If you encounter errors when installing via HACS:
 
-1. **Version Error**: Ensure the repository has a proper release tag (see the [Releases](https://github.com/dstocking/powershades-homeassistant/releases) page)
+1. **Version Error**: Ensure the repository has a proper release tag (see the [Releases](https://github.com/vemboy200/hass-powershades/releases) page)
 2. **Repository Not Found**: Verify the repository URL is correct and the repository is public
 3. **Download Failed**: Try refreshing HACS and clearing the cache
 
@@ -214,12 +221,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
+- [dstocking](https://github.com/dstocking/powershades-homeassistant), the original author of this integration
 - PowerShades for their UDP protocol documentation
 - Home Assistant community for the integration framework
 
 ## Support
 
-For issues and feature requests, please use the [GitHub Issues](https://github.com/dstocking/powershades-homeassistant/issues) page.
+For issues and feature requests, please use the [GitHub Issues](https://github.com/vemboy200/hass-powershades/issues) page.
 
 ## Changelog
 

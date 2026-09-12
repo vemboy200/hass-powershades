@@ -2,7 +2,7 @@
     "domain": "powershades",
     "name": "PowerShades Blinds",
     "codeowners": [
-        "@dstocking"
+        "@vemboy200"
     ],
     "config_flow": true,
     "dependencies": [
@@ -17,10 +17,10 @@
             "registered_devices": true
         }
     ],
-    "documentation": "https://github.com/dstocking/powershades-homeassistant",
+    "documentation": "https://github.com/vemboy200/hass-powershades",
     "integration_type": "device",
     "iot_class": "local_push",
-    "issue_tracker": "https://github.com/dstocking/powershades-homeassistant/issues",
+    "issue_tracker": "https://github.com/vemboy200/hass-powershades/issues",
     "quality_scale": "platinum",
     "requirements": [
         "pyowershades==0.2.0"

@@ -14,8 +14,8 @@ rules:
   common-modules: done
   comment: |
     coordinator.py, protocol.py, udp.py and discovery.py split out the shared logic cleanly;
-    entity.py provides a PowerShadesEntity base class shared by the cover, button and
-    sensor platforms
+    entity.py provides a PowerShadesEntity base class shared by the cover, button,
+    sensor and binary_sensor platforms
   config-flow-test-coverage: done
   comment: |
     tests/components/powershades/test_config_flow.py covers manual entry (success, cannot_connect,
@@ -40,7 +40,7 @@ rules:
     unique_id is based on the shade's serial number (falls back to entry_id)
   has-entity-name: done
   comment: |
-    _attr_has_entity_name = True is set on cover, button and sensor entities
+    _attr_has_entity_name = True is set on cover, button, sensor and binary_sensor entities
   runtime-data: done
   comment: |
     coordinator is stored on entry.runtime_data via PowerShadesConfigEntry
@@ -72,19 +72,21 @@ rules:
     DataUpdateCoordinator logs a warning when polling starts failing and when it recovers
   parallel-updates: done
   comment: |
-    PARALLEL_UPDATES = 0 is set in cover.py, button.py and sensor.py
+    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py and binary_sensor.py
   reauthentication-flow: exempt
   comment: |
     the device has no concept of authentication, nothing to re-authenticate
   test-coverage: done
   comment: |
-    tests cover the config flow, coordinator (polling, push updates, stuck-shade detection,
-    services), protocol parsing/building, and the cover, button and sensor platforms
+    tests cover the config flow, coordinator (polling, push updates, real motor state
+    refresh, services), protocol parsing/building, and the cover, button, sensor and
+    binary_sensor platforms
 
   # Gold
   devices: done
   comment: |
-    DeviceInfo includes identifiers, MAC connection, manufacturer, model and serial number
+    DeviceInfo includes identifiers, MAC connection, manufacturer, model, serial number
+    and firmware revision (sw_version)
   diagnostics: done
   comment: |
     diagnostics.py returns the entry's data and the coordinator's current state,
@@ -103,7 +105,7 @@ rules:
     "Automation Examples" section has open/close automations
   docs-known-limitations: done
   comment: |
-    "Known Limitations" section covers the UDP master / last controller behavior
+    "Known Limitations" section covers the UDP subscriber / last controller behavior
   docs-supported-devices: done
   docs-supported-functions: done
   docs-troubleshooting: done
@@ -115,18 +117,20 @@ rules:
     one device per config entry
   entity-category: done
   comment: |
-    diagnostic sensors and config buttons use entity_category appropriately
+    diagnostic sensors/binary sensors, diagnostic buttons (identify, reboot) and config
+    buttons (jog/limit tools) use entity_category appropriately
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
-    cover uses CoverDeviceClass.SHADE
+    cover uses CoverDeviceClass.SHADE, the green LED binary sensor uses
+    BinarySensorDeviceClass.LIGHT, and the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
     battery and voltage sensors are entity_registry_enabled_default=False
   entity-translations: done
   comment: |
-    button entities use translation_key with names defined under entity.button in
-    strings.json/translations
+    button and binary_sensor entities use translation_key with names defined under
+    entity.button/entity.binary_sensor in strings.json/translations
   exception-translations: done
   comment: |
     HomeAssistantError/ServiceValidationError raised from services.py and
