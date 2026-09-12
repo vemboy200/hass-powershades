@@ -223,6 +223,14 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 
 ## Changelog
 
+### v0.9.0
+- Added Reboot and Save Limits buttons (Configuration)
+- Added a Green LED binary sensor (Diagnostic) - the shade's status LED can turn on unpredictably, and this makes it visible in Home Assistant instead of only on the physical device
+- The cover's opening/closing state is now read directly from the device instead of guessed from position changes over time. The Get Debug Info reply includes a real motor_state field (idle, moving up, or moving down), so there's no more heuristic involved - just a direct read
+- Device info now shows the shade's active firmware revision
+- **Dropped the getmac dependency**. MAC addresses are now only ever sourced from DHCP discovery info (a DHCP request already carries the sender's MAC, no lookup needed) instead of an ARP lookup after setup. Entries that already have a MAC stored keep showing it; it just won't be refreshed via ARP anymore for entries that got it that way
+- Now depends on the [pyowershades](https://pypi.org/project/pyowershades/) PyPI package instead of an inline copy of the protocol code, so this integration and the equivalent Home Assistant core submission share one implementation
+
 ### v0.6.0
 - Home Assistant now always assumes the state of the shade instead of only when its the UDP master
 - Added quality_scale.yaml file
