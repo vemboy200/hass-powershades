@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
 from pyowershades import (
+    OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
     OP_GET_STATUS,
     PowerShadesConnection,
@@ -20,7 +21,7 @@ from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, status_packet
+from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, device_id_packet, status_packet
 
 
 async def test_setup_entry_success(hass: HomeAssistant, config_entry) -> None:
@@ -155,3 +156,38 @@ async def test_setup_entry_fills_in_missing_model(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
     assert entry.data["model"] == 1
+
+
+async def test_setup_entry_fetches_firmware_version(hass: HomeAssistant) -> None:
+    """Setup fetches the active bank's firmware revision, not persisted."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    device_id_reply = device_id_packet(low_rev=97, high_rev=109, status_bits=2)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEVICE_ID:
+            return device_id_reply
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    coordinator = entry.runtime_data
+    assert coordinator.firmware_version == "109"
+    assert coordinator.device_info["sw_version"] == "109"

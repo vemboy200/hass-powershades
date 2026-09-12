@@ -12,9 +12,11 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from pyowershades import (
+    OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
     PowerShadesConnection,
     PowerShadesTimeoutError,
+    parse_device_id_reply,
     parse_serial_reply,
 )
 
@@ -61,6 +63,27 @@ async def _async_backfill_model(
     )
 
 
+async def _async_fetch_firmware_version(coordinator: PowerShadesCoordinator) -> None:
+    """Fetch the active firmware bank's revision for the device info card.
+
+    Not persisted to entry data (unlike model) - it's refreshed on every
+    setup instead, since it can change after a firmware update. Best-effort:
+    silently leaves it unset on failure or an ambiguous active-bank flag.
+    """
+    try:
+        reply = await coordinator.connection.async_request(OP_GET_DEVICE_ID)
+    except PowerShadesTimeoutError:
+        return
+    device_id = parse_device_id_reply(reply)
+    if device_id is None:
+        return
+    active_bank = device_id.status_bits & 3
+    if active_bank == 1:
+        coordinator.firmware_version = str(device_id.low_rev)
+    elif active_bank == 2:
+        coordinator.firmware_version = str(device_id.high_rev)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the PowerShades component."""
     async_setup_services(hass)
@@ -100,6 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.async_on_unload(connection.close)
 
     await _async_backfill_model(hass, entry, coordinator)
+    await _async_fetch_firmware_version(coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

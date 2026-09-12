@@ -7,6 +7,7 @@ import pytest
 
 from pyowershades import (
     OP_GET_DEBUG_INFO,
+    OP_GET_DEVICE_ID,
     OP_GET_SHADE_NAME,
     OP_GET_STATUS,
     PowerShadesConnection,
@@ -109,6 +110,34 @@ def debug_info_packet(*, green_led: bool = False, motor_state: int = 0) -> bytes
     return build_packet(OP_GET_DEBUG_INFO, payload=payload)
 
 
+def device_id_packet(
+    *, low_rev: int = 0, high_rev: int = 0, status_bits: int = 0
+) -> bytes:
+    """Build a Get Device ID reply packet."""
+    payload = struct.pack(
+        "<BB2IHHHHI3iBIII50sB",
+        0,  # model
+        status_bits,
+        0,
+        0,  # serial_raw
+        low_rev,
+        high_rev,
+        0,
+        0,  # low_crc, high_crc
+        0,  # device_count
+        0,
+        0,
+        0,  # end_stop_raw
+        0,  # dhcp_enabled
+        0,
+        0,
+        0,  # ip/subnet/gateway
+        b"\x00" * 50,  # server_hostname
+        0,  # model_version
+    )
+    return build_packet(OP_GET_DEVICE_ID, payload=payload)
+
+
 @pytest.fixture
 def mock_connection():
     """Mock the UDP connection so setup never touches real sockets."""
@@ -120,6 +149,8 @@ def mock_connection():
             return shade_name_packet(TEST_NAME)
         if op == OP_GET_DEBUG_INFO:
             return debug_info_packet()
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet()
         return build_packet(op)
 
     with (
