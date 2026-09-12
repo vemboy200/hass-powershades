@@ -1,10 +1,8 @@
 """Tests for the PowerShades button platform."""
 
 import pytest
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
 from pyowershades import (
     LIMIT_LOWER,
     LIMIT_UPPER,

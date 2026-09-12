@@ -3,9 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from homeassistant.exceptions import HomeAssistantError
-
 from pyowershades import (
     LIMIT_LOWER,
     LIMIT_UPPER,
@@ -28,12 +26,11 @@ from pyowershades import (
     build_set_limit_payload,
     build_set_position_payload,
 )
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powershades import coordinator as coordinator_module
 from custom_components.powershades.const import DOMAIN
 from custom_components.powershades.coordinator import PowerShadesCoordinator
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, debug_info_packet, status_packet
 

@@ -16,7 +16,6 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-
 from pyowershades import (
     GET_SHADE_NAME_PAYLOAD,
     LIMIT_LOWER,

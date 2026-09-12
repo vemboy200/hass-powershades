@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
-
 from pyowershades import (
     OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
@@ -15,11 +14,10 @@ from pyowershades import (
     PowerShadesTimeoutError,
     build_packet,
 )
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powershades.const import DOMAIN
 from custom_components.powershades.coordinator import PowerShadesCoordinator
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, device_id_packet, status_packet
 

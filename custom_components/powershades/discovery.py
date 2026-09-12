@@ -6,15 +6,14 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-from pyowershades import DiscoveredDevice
-from pyowershades import async_discover_devices as _pyowershades_discover_devices
-
 from homeassistant.components import network
 from homeassistant.config_entries import SOURCE_INTEGRATION_DISCOVERY
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import discovery_flow
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
+from pyowershades import DiscoveredDevice
+from pyowershades import async_discover_devices as _pyowershades_discover_devices
 
 from .const import DOMAIN
 

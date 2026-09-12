@@ -2,7 +2,6 @@
 
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.core import HomeAssistant
-
 from pyowershades import OP_JOG_STOP, OP_SET_POSITION, build_set_position_payload
 
 from custom_components.powershades import coordinator as coordinator_module

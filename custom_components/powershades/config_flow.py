@@ -7,12 +7,10 @@ import logging
 from typing import Any, override
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.helpers import selector
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
-
 from pyowershades import (
     DiscoveredDevice,
     PowerShadesTimeoutError,

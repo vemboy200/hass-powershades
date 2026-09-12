@@ -10,7 +10,6 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
-
 from pyowershades import (
     OP_GET_DEVICE_ID,
     OP_GET_SERIAL,

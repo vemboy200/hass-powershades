@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
 from pyowershades import OP_GET_DEBUG_INFO, OP_GET_STATUS
 
 from .conftest import debug_info_packet, status_packet

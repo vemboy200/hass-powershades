@@ -4,7 +4,6 @@ import struct
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from pyowershades import (
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
@@ -13,10 +12,9 @@ from pyowershades import (
     PowerShadesConnection,
     build_packet,
 )
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powershades.const import DOMAIN
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 TEST_IP = "192.168.1.50"
 TEST_SERIAL = 12345

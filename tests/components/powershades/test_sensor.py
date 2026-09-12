@@ -2,7 +2,6 @@
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
 from pyowershades import battery_percentage
 
 
