@@ -14,12 +14,17 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, OP_GET_SERIAL
+from pyowershades import (
+    OP_GET_SERIAL,
+    PowerShadesConnection,
+    PowerShadesTimeoutError,
+    parse_serial_reply,
+)
+
+from .const import DOMAIN
 from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 from .discovery import async_start_discovery
-from .protocol import parse_serial_reply
 from .services import async_setup_services
-from .udp import PowerShadesConnection, PowerShadesTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 

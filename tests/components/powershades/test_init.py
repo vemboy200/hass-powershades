@@ -7,13 +7,16 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from custom_components.powershades.const import DOMAIN, OP_GET_SERIAL, OP_GET_STATUS
-from custom_components.powershades.coordinator import PowerShadesCoordinator
-from custom_components.powershades.protocol import build_packet
-from custom_components.powershades.udp import (
+from pyowershades import (
+    OP_GET_SERIAL,
+    OP_GET_STATUS,
     PowerShadesConnection,
     PowerShadesTimeoutError,
+    build_packet,
 )
+
+from custom_components.powershades.const import DOMAIN
+from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 

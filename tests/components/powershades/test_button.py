@@ -5,7 +5,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.powershades.const import (
+from pyowershades import (
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_CLEAR_LIMITS,
@@ -16,8 +16,6 @@ from custom_components.powershades.const import (
     OP_SET_POSITION,
     OP_STEP_DOWN,
     OP_STEP_UP,
-)
-from custom_components.powershades.protocol import (
     build_set_limit_payload,
     build_set_position_payload,
 )

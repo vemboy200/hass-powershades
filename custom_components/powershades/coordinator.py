@@ -17,12 +17,13 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import (
-    DOMAIN,
+from pyowershades import (
+    GET_SHADE_NAME_PAYLOAD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     MODEL_NAMES,
     OP_CLEAR_LIMITS,
+    OP_GET_SHADE_NAME,
     OP_GET_STATUS,
     OP_INDICATE,
     OP_JOG_DOWN,
@@ -32,10 +33,8 @@ from .const import (
     OP_SET_POSITION,
     OP_STEP_DOWN,
     OP_STEP_UP,
-    OP_GET_SHADE_NAME,
-)
-from .protocol import (
-    GET_SHADE_NAME_PAYLOAD,
+    PowerShadesConnection,
+    PowerShadesTimeoutError,
     StatusReply,
     battery_percentage,
     build_set_limit_payload,
@@ -44,7 +43,8 @@ from .protocol import (
     parse_shade_name_reply,
     parse_status_reply,
 )
-from .udp import PowerShadesConnection, PowerShadesTimeoutError
+
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

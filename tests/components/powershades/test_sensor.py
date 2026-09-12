@@ -3,7 +3,7 @@
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.powershades.protocol import battery_percentage
+from pyowershades import battery_percentage
 
 
 async def test_sensors_disabled_by_default(hass: HomeAssistant, config_entry) -> None:

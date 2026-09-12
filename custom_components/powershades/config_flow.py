@@ -12,13 +12,14 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
-from .const import DOMAIN
-from .udp import (
+from pyowershades import (
     DiscoveredDevice,
     PowerShadesTimeoutError,
-    async_discover_devices,
     async_get_device_info,
 )
+
+from .const import DOMAIN
+from .discovery import async_discover_devices
 
 _LOGGER = logging.getLogger(__name__)
 

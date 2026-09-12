@@ -6,9 +6,7 @@ import pytest
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.powershades import coordinator as coordinator_module
-from custom_components.powershades.const import (
-    DOMAIN,
+from pyowershades import (
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_CLEAR_LIMITS,
@@ -20,17 +18,16 @@ from custom_components.powershades.const import (
     OP_SET_POSITION,
     OP_STEP_DOWN,
     OP_STEP_UP,
-)
-from custom_components.powershades.coordinator import PowerShadesCoordinator
-from custom_components.powershades.protocol import (
+    PowerShadesConnection,
+    PowerShadesTimeoutError,
     StatusReply,
     build_set_limit_payload,
     build_set_position_payload,
 )
-from custom_components.powershades.udp import (
-    PowerShadesConnection,
-    PowerShadesTimeoutError,
-)
+
+from custom_components.powershades import coordinator as coordinator_module
+from custom_components.powershades.const import DOMAIN
+from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 

@@ -11,8 +11,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
+from pyowershades import PowerShadesTimeoutError
+
 from custom_components.powershades.const import DOMAIN
-from custom_components.powershades.udp import PowerShadesTimeoutError
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
