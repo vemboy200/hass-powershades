@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
@@ -37,6 +38,7 @@ BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
     PowerShadesBinarySensorDescription(
         key="green_led",
         translation_key="green_led",
+        device_class=BinarySensorDeviceClass.LIGHT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.io_green_led,
     ),
