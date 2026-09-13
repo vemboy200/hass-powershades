@@ -14,9 +14,9 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state
 - **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
-- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default)
-- **Binary Sensor Platform**: Green LED status indicator (Diagnostic)
-- **Services**: Extra actions beyond the standard cover services — toggling, jogging, stepping, limit calibration, and renaming a shade
+- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), and an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs
+- **Binary Sensor Platform**: Motor Running and Charging diagnostic sensors
+- **Services**: `powershades.set_shade_name`, for renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
 - **Config Flow**: Easy setup through Home Assistant's UI, with automatic and DHCP discovery
 - **Local Control**: No cloud dependencies, works entirely locally
@@ -92,11 +92,13 @@ Each shade also gets buttons for:
 
 Battery percentage and battery voltage are available as diagnostic sensor entities (disabled by default — enable them from the device page). Note: in versions before 0.2.0 these values were exposed as attributes on the cover entity; templates referencing `battery_percentage`/`battery_voltage_mv` cover attributes should switch to the sensors.
 
-A Green LED binary sensor (enabled by default) mirrors the shade's physical status LED — useful since that LED can turn on unpredictably and isn't otherwise visible unless you're standing in front of the shade.
+An LED Color sensor (enabled by default) mirrors the shade's two physical status LEDs (green and red) as a single sensor with four states: `off`, `green`, `red`, and `yellow` (both LEDs on at once) — useful since these LEDs can turn on unpredictably and aren't otherwise visible unless you're standing in front of the shade.
+
+Two binary sensors (enabled by default) are also available: **Motor Running** (the motor controller isn't in its low-power sleep state) and **Charging** (PoE power is present and negotiated normally - in practice this reads on almost the entire time the shade is reachable at all, since a full PoE loss also cuts power to the whole device; it's mainly useful for catching a degraded or under-negotiated PoE link the shade is still limping along on).
 
 ### Services
 
-Besides the standard cover services, the integration provides `powershades.toggle_shade`, `powershades.jog_up`/`jog_down`, `powershades.step_up`/`step_down`, `powershades.set_upper_limit`/`set_lower_limit`/`clear_limits`, and `powershades.set_shade_name` (renames the shade on the device itself; the Home Assistant device name follows).
+Besides the standard cover services, the integration provides `powershades.set_shade_name` (renames the shade on the device itself; the Home Assistant device name follows). Toggling, jogging, stepping, and limit calibration are buttons instead (see Button Controls above) — as of v1.0.0 they're no longer also exposed as services, since a button already covers the exact same no-parameters action.
 
 
 ### Known Limitations
@@ -230,6 +232,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For issues and feature requests, please use the [GitHub Issues](https://github.com/vemboy200/hass-powershades/issues) page.
 
 ## Changelog
+
+### v1.0.0
+- **Breaking change**: Removed the `powershades.toggle_shade`, `powershades.jog_up`/`jog_down`, `powershades.step_up`/`step_down`, and `powershades.set_upper_limit`/`set_lower_limit`/`clear_limits` services. Each one duplicated an existing button entity (Toggle Shade, Jog Up/Down, Step Up/Down, Set Upper/Lower Limit, Clear Limits) that takes no parameters, so there was nothing a service added over pressing the button - update any automations calling these services to press the equivalent button (`button.press`) instead. `powershades.set_shade_name` is unaffected, since it needs a name parameter a button can't provide
+- **Breaking change**: Replaced the Green LED binary sensor with an LED Color sensor. The device actually has two status LEDs (green and red), and this makes both visible as one entity with four states (`off`/`green`/`red`/`yellow`, where yellow means both are lit) instead of only ever tracking the green one. Automations/dashboards referencing the old `binary_sensor.*_green_led` entity need to switch to the new `sensor.*_led_color` entity and its string states instead of on/off
+- Added Motor Running and Charging binary sensors (Diagnostic)
+- Polling now uses a single Get Debug Info request per cycle instead of two separate requests - Get Debug Info already carries position and battery alongside motor_state and both LEDs, so Get Status is no longer actively polled. It's still used for the shade's own real-time push, since the shade only ever sends that op unsolicited
+- Status pushes no longer reset the poll timer, so motor_state and the LED color sensor refresh on their normal schedule regardless of how often the shade pushes
+- Declared the `pyowershades` package as a debug-logging source in the manifest, so enabling debug logging on the integration now also captures the library's own per-packet logs, not just the coordinator's
 
 ### v0.9.0
 - Added Reboot and Save Limits buttons (Configuration)

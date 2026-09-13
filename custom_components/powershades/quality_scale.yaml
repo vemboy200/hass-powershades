@@ -117,20 +117,24 @@ rules:
     one device per config entry
   entity-category: done
   comment: |
-    diagnostic sensors/binary sensors, diagnostic buttons (identify, reboot) and config
-    buttons (jog/limit tools) use entity_category appropriately
+    diagnostic sensors (battery, voltage, LED color) and binary sensors (motor running,
+    charging), diagnostic buttons (identify, reboot) and config buttons (jog/limit tools)
+    use entity_category appropriately
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
-    cover uses CoverDeviceClass.SHADE, the green LED binary sensor uses
-    BinarySensorDeviceClass.LIGHT, and the reboot button uses ButtonDeviceClass.RESTART
+    the LED color sensor uses SensorDeviceClass.ENUM, the motor running binary sensor uses
+    BinarySensorDeviceClass.RUNNING, the charging binary sensor uses
+    BinarySensorDeviceClass.BATTERY_CHARGING, cover uses CoverDeviceClass.SHADE, and
+    the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
     battery and voltage sensors are entity_registry_enabled_default=False
   entity-translations: done
   comment: |
-    button and binary_sensor entities use translation_key with names defined under
-    entity.button/entity.binary_sensor in strings.json/translations
+    button, sensor and binary_sensor entities use translation_key with names (and, for the
+    enum LED color sensor, per-state names) defined under
+    entity.button/entity.sensor/entity.binary_sensor in strings.json/translations
   exception-translations: done
   comment: |
     HomeAssistantError/ServiceValidationError raised from services.py and
