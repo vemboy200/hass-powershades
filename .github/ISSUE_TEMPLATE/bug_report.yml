@@ -1,0 +1,48 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the [existing issues](https://github.com/vemboy200/hass-powershades/issues) to see if this has already been reported.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected to happen instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: hass-powershades version
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device type
+      description: Check Settings > Devices > your PowerShade device > Model.
+      options:
+        - PoE Shade
+        - RF Gateway / RF-paired shade
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or diagnostics
+      description: Paste relevant Home Assistant logs (Settings > System > Logs), and/or attach diagnostics (device page > Download diagnostics).
+      render: shell
+    validations:
+      required: false
