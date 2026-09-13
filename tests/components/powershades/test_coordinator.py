@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from pyowershades import (
+    DISABLE_TCP_CLOUD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_CLEAR_LIMITS,
+    OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_STATUS,
     OP_INDICATE,
@@ -32,7 +34,14 @@ from custom_components.powershades import coordinator as coordinator_module
 from custom_components.powershades.const import DOMAIN
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
-from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, debug_info_packet, status_packet
+from .conftest import (
+    TEST_IP,
+    TEST_NAME,
+    TEST_SERIAL,
+    debug_info_packet,
+    disables_packet,
+    status_packet,
+)
 
 
 @pytest.fixture
@@ -261,3 +270,66 @@ async def test_async_update_data_raises_on_timeout(coordinator) -> None:
 
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+async def test_async_fetch_disables_state(coordinator) -> None:
+    """Fetching Disables decodes the TCP/cloud bit and stashes the raw
+    byte for a future read-modify-write."""
+    await coordinator.async_fetch_disables_state()
+
+    assert coordinator.allow_cloud_connection is True
+    assert coordinator._disables_raw == 0x01
+
+
+async def test_async_fetch_disables_state_timeout_leaves_unset(coordinator) -> None:
+    """A timeout leaves allow_cloud_connection unset (best-effort)."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_fetch_disables_state()
+
+    assert coordinator.allow_cloud_connection is None
+
+
+async def test_async_set_allow_cloud_connection_preserves_other_bits(
+    coordinator,
+) -> None:
+    """Turning cloud connectivity off only flips that bit, keeping
+    whatever other Feature Disables the device already has set."""
+    sent_payloads = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_DISABLES:
+            if payload:
+                sent_payloads.append(payload)
+                return disables_packet(tcp_cloud_disabled=True, other_bits=0x01 | 0x04)
+            return disables_packet(tcp_cloud_disabled=False, other_bits=0x01 | 0x04)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_set_allow_cloud_connection(False)
+
+    assert sent_payloads == [bytes([0x01 | 0x04 | DISABLE_TCP_CLOUD])]
+    assert coordinator.allow_cloud_connection is False
+
+
+async def test_async_set_allow_cloud_connection_failure_raises(coordinator) -> None:
+    """If the device doesn't confirm the change, the failure is raised."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_allow_cloud_connection(True)
+
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "cloud_connection_not_confirmed"
+    assert exc_info.value.translation_placeholders == {
+        "ip_address": coordinator.ip_address
+    }

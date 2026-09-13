@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from pyowershades import (
+    DISABLE_TCP_CLOUD,
+    OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
     OP_GET_SHADE_NAME,
@@ -155,6 +157,14 @@ def device_id_packet(
     return build_packet(OP_GET_DEVICE_ID, payload=payload)
 
 
+def disables_packet(
+    *, tcp_cloud_disabled: bool = False, other_bits: int = 0x01
+) -> bytes:
+    """Build a Get/Set Disables reply packet."""
+    byte = other_bits | (DISABLE_TCP_CLOUD if tcp_cloud_disabled else 0)
+    return build_packet(OP_DISABLES, payload=bytes([byte]))
+
+
 @pytest.fixture
 def mock_connection():
     """Mock the UDP connection so setup never touches real sockets."""
@@ -168,6 +178,8 @@ def mock_connection():
             return debug_info_packet()
         if op == OP_GET_DEVICE_ID:
             return device_id_packet()
+        if op == OP_DISABLES:
+            return disables_packet()
         return build_packet(op)
 
     with (

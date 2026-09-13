@@ -27,7 +27,13 @@ from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.COVER, Platform.SENSOR]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.COVER,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -156,6 +162,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
 
     await _async_backfill_model(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
+    await coordinator.async_fetch_disables_state()
     _async_check_rf_gateway(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

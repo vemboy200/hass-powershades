@@ -69,6 +69,9 @@
         },
         "update_malformed_reply": {
             "message": "Malformed status reply from {ip_address}"
+        },
+        "cloud_connection_not_confirmed": {
+            "message": "Shade at {ip_address} did not confirm its cloud connectivity setting."
         }
     },
     "selector": {
@@ -180,6 +183,11 @@
             },
             "charging": {
                 "name": "Charging"
+            }
+        },
+        "switch": {
+            "allow_cloud_connection": {
+                "name": "Allow Cloud Connection"
             }
         }
     }

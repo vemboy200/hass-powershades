@@ -100,6 +100,12 @@ Two more diagnostic binary sensors are also available. **Motor Awake** (enabled 
 
 **Current RPM**, **Desired RPM**, and **Motor Power** (disabled by default — enable from the device page) show live motor telemetry: the measured motor speed, the speed the motor controller is trying to reach, and its power level as a percentage. All three read 0 while the shade is idle. Comparing Current RPM against Desired RPM can reveal the motor struggling to reach its target speed (e.g. under load or resistance).
 
+### Switches
+
+**Allow Cloud Connection** (disabled by default — enable from the device page) controls whether the shade's own TCP connection to PowerShades' cloud dashboard is allowed. Turning it off doesn't affect local control through this integration at all - it only blocks the shade's separate outbound connection. This reads and writes the device's Feature Disables register directly, preserving every other bit in that register so it doesn't undo any other setting you've configured through the official app.
+
+This is unverified against real hardware behavior (only confirmed from the vendor's own decompiled source, like most things not yet wire-tested) - see [pyowershades' docs/KNOWN_BEHAVIORS.md](https://github.com/vemboy200/Pyowershades/blob/main/docs/KNOWN_BEHAVIORS.md) for the open investigation this entity exists to help with.
+
 ### Services
 
 Besides the standard cover services, the integration provides `powershades.set_shade_name` (renames the shade on the device itself; the Home Assistant device name follows). Toggling, jogging, stepping, and limit calibration are buttons instead (see Button Controls above) — as of v1.0.0 they're no longer also exposed as services, since a button already covers the exact same no-parameters action.
@@ -112,6 +118,7 @@ Besides the standard cover services, the integration provides `powershades.set_s
 Push data is sent every 10 seconds so updates are not instant
 - The shade must be on the same network subnet as Home Assistant, or UDP broadcast traffic must be routed between subnets.
 - Only PoE Shades are fully supported, so it is recommened that you connect your RF Powershades to Home Assistant using a Bond Bridge, and report what went wrong when adding your Powershades RF bridge.
+- The Allow Cloud Connection switch only reads the device's Feature Disables setting at setup and right after you toggle it - not on every poll. If something other than this integration changes it (the official app, another controller, etc.), the switch can show a stale value until you toggle it again or reload the integration.
 
 ### Data Updates
 

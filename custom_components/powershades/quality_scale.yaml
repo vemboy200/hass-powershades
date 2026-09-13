@@ -72,15 +72,15 @@ rules:
     DataUpdateCoordinator logs a warning when polling starts failing and when it recovers
   parallel-updates: done
   comment: |
-    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py and binary_sensor.py
+    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py, binary_sensor.py and switch.py
   reauthentication-flow: exempt
   comment: |
     the device has no concept of authentication, nothing to re-authenticate
   test-coverage: done
   comment: |
     tests cover the config flow, coordinator (polling, push updates, real motor state
-    refresh, services), protocol parsing/building, and the cover, button, sensor and
-    binary_sensor platforms
+    refresh, services, Feature Disables read-modify-write), protocol parsing/building,
+    and the cover, button, sensor, binary_sensor and switch platforms
 
   # Gold
   devices: done
@@ -120,7 +120,8 @@ rules:
   comment: |
     diagnostic sensors (battery, voltage, LED color, error, current/desired RPM, motor
     power) and binary sensors (motor awake, charging), diagnostic buttons (identify,
-    reboot) and config buttons (toggle, jog/limit tools) use entity_category appropriately
+    reboot), config buttons (toggle, jog/limit tools), and the config switch (allow
+    cloud connection) use entity_category appropriately
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
@@ -134,12 +135,15 @@ rules:
     non-reversible limit buttons (set upper/lower limit, clear limits, save limits), are
     entity_registry_enabled_default=False - the latter since an accidental press could
     miscalibrate the shade's travel range. Jog/Step
-    stay enabled since jogging/stepping the other way undoes them
+    stay enabled since jogging/stepping the other way undoes them. The allow-cloud-connection
+    switch is also disabled by default - most users have no reason to touch it, and it's
+    not yet verified against real hardware (docs/KNOWN_BEHAVIORS.md in pyowershades),
+    matching the precedent of Home Connect Local's analogous AllowBackendConnection switch
   entity-translations: done
   comment: |
-    button, sensor and binary_sensor entities use translation_key with names (and, for the
-    enum LED color and error sensors, per-state names) defined under
-    entity.button/entity.sensor/entity.binary_sensor in strings.json/translations
+    button, sensor, binary_sensor and switch entities use translation_key with names (and,
+    for the enum LED color and error sensors, per-state names) defined under
+    entity.button/entity.sensor/entity.binary_sensor/entity.switch in strings.json/translations
   exception-translations: done
   comment: |
     HomeAssistantError/ServiceValidationError raised from services.py and

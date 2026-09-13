@@ -69,6 +69,9 @@
         },
         "update_malformed_reply": {
             "message": "Respuesta de estado con formato incorrecto de {ip_address}"
+        },
+        "cloud_connection_not_confirmed": {
+            "message": "La persiana en {ip_address} no confirmó su configuración de conexión a la nube."
         }
     },
     "selector": {
@@ -180,6 +183,11 @@
             },
             "charging": {
                 "name": "Cargando"
+            }
+        },
+        "switch": {
+            "allow_cloud_connection": {
+                "name": "Permitir conexión a la nube"
             }
         }
     }

@@ -69,6 +69,9 @@
         },
         "update_malformed_reply": {
             "message": "Réponse d'état mal formée de {ip_address}"
+        },
+        "cloud_connection_not_confirmed": {
+            "message": "Le store à {ip_address} n'a pas confirmé son paramètre de connexion au cloud."
         }
     },
     "selector": {
@@ -180,6 +183,11 @@
             },
             "charging": {
                 "name": "En charge"
+            }
+        },
+        "switch": {
+            "allow_cloud_connection": {
+                "name": "Autoriser la connexion au cloud"
             }
         }
     }
