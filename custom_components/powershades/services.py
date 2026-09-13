@@ -44,31 +44,13 @@ def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PowerShadesCoord
 
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Set up PowerShades services."""
+    """Set up PowerShades services.
 
-    async def toggle_shade(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_toggle()
-
-    async def set_upper_limit(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_set_upper_limit()
-
-    async def set_lower_limit(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_set_lower_limit()
-
-    async def clear_limits(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_clear_limits()
-
-    async def step_up(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_step_up()
-
-    async def step_down(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_step_down()
-
-    async def jog_up(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_jog_up()
-
-    async def jog_down(call: ServiceCall) -> None:
-        await _get_coordinator(hass, call).async_jog_down()
+    set_shade_name is the only service left - every other former service
+    (toggle, jog, step, limits) duplicates a button entity that already
+    exists and takes no parameters, so there's nothing a service adds
+    over just pressing the button.
+    """
 
     async def set_shade_name(call: ServiceCall) -> None:
         name = call.data["name"].strip()
@@ -78,18 +60,6 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 translation_key="invalid_shade_name",
             )
         await _get_coordinator(hass, call).async_set_shade_name(name)
-
-    for name, handler in (
-        ("toggle_shade", toggle_shade),
-        ("set_upper_limit", set_upper_limit),
-        ("set_lower_limit", set_lower_limit),
-        ("clear_limits", clear_limits),
-        ("step_up", step_up),
-        ("step_down", step_down),
-        ("jog_up", jog_up),
-        ("jog_down", jog_down),
-    ):
-        hass.services.async_register(DOMAIN, name, handler, schema=SERVICE_SCHEMA)
 
     hass.services.async_register(
         DOMAIN,
