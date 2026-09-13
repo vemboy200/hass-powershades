@@ -147,8 +147,17 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
     @callback
     def _handle_status_push(self, status: StatusReply) -> None:
-        """Handle a status packet (runs on the event loop)."""
-        self.async_set_updated_data(self._data_from_status(status))
+        """Handle a status packet (runs on the event loop).
+
+        Sets data directly instead of calling async_set_updated_data(),
+        which also cancels and reschedules the poll timer. Get Debug Info
+        (motor_state, io_green_led) has no push equivalent and is only
+        ever refreshed by that poll, so letting frequent pushes keep
+        deferring it would delay those fields for no benefit.
+        """
+        self.data = self._data_from_status(status)
+        self.last_update_success = True
+        self.async_update_listeners()
 
     @override
     async def _async_update_data(self) -> PowerShadesData:
