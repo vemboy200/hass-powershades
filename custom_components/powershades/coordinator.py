@@ -158,9 +158,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             error_list=self.data.error_list if self.data is not None else [],
             velocity_rpm=self.data.velocity_rpm if self.data is not None else None,
             desired_rpm=self.data.desired_rpm if self.data is not None else None,
-            motor_duty_cycle=self.data.motor_duty_cycle
-            if self.data is not None
-            else None,
+            motor_duty_cycle=(
+                self.data.motor_duty_cycle if self.data is not None else None
+            ),
         )
 
     @callback

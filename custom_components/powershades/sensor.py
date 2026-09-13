@@ -39,7 +39,11 @@ LED_COLOR_OPTIONS = ["off", "green", "red", "yellow"]
 # "none" (no error) and "unknown" (a code outside 1-33, e.g. from a firmware
 # version not covered by POE_ERROR_CODES) aren't PoEErrorCode values
 # themselves, but need to be valid ENUM options too.
-ERROR_OPTIONS = ["none", "unknown", *(name.lower() for name in POE_ERROR_CODES.values())]
+ERROR_OPTIONS = [
+    "none",
+    "unknown",
+    *(name.lower() for name in POE_ERROR_CODES.values()),
+]
 
 
 def _led_color(data: PowerShadesData) -> str | None:

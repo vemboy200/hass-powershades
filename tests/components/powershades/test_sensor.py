@@ -120,9 +120,7 @@ async def test_error_none_by_default(hass: HomeAssistant, config_entry) -> None:
     assert state.attributes["icon"] == "mdi:check-circle"
 
 
-async def test_error_shows_most_recent_code(
-    hass: HomeAssistant, config_entry
-) -> None:
+async def test_error_shows_most_recent_code(hass: HomeAssistant, config_entry) -> None:
     """With multiple logged errors, the last one in the list is shown,
     with the alert icon."""
     coordinator = config_entry.runtime_data
