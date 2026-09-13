@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import override
 
@@ -24,7 +24,6 @@ from pyowershades import (
     OP_CLEAR_LIMITS,
     OP_GET_DEBUG_INFO,
     OP_GET_SHADE_NAME,
-    OP_GET_STATUS,
     OP_INDICATE,
     OP_JOG_DOWN,
     OP_JOG_STOP,
@@ -44,7 +43,6 @@ from pyowershades import (
     build_set_position_payload,
     parse_debug_info_reply,
     parse_shade_name_reply,
-    parse_status_reply,
 )
 
 from .const import DOMAIN
@@ -161,9 +159,15 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
     @override
     async def _async_update_data(self) -> PowerShadesData:
-        """Poll the device for status."""
+        """Poll the device for status via a single Debug Info request.
+
+        Debug Info carries position and battery in addition to
+        motor_state/io_green_led, so there's no need to also poll Get
+        Status - it's only still used for real-time push, since the
+        shade only ever sends that op unsolicited.
+        """
         try:
-            raw = await self.connection.async_request(OP_GET_STATUS)
+            raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
         except PowerShadesTimeoutError as err:
             raise UpdateFailed(
                 translation_domain=DOMAIN,
@@ -173,31 +177,27 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                     "error": str(err),
                 },
             ) from err
-        status = parse_status_reply(raw)
-        if status is None:
+        debug_info = parse_debug_info_reply(raw)
+        if debug_info is None:
             raise UpdateFailed(
                 translation_domain=DOMAIN,
                 translation_key="update_malformed_reply",
                 translation_placeholders={"ip_address": self.ip_address},
             )
-        data = self._data_from_status(status)
+        position = (
+            debug_info.current_percent
+            if 0 <= debug_info.current_percent <= 100
+            else None
+        )
+        data = PowerShadesData(
+            position=position,
+            battery_mv=debug_info.battery_mv,
+            battery_percentage=battery_percentage(debug_info.battery_mv),
+            io_green_led=debug_info.io_green_led,
+            motor_state=debug_info.motor_state,
+        )
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)
-
-        # Best-effort: the green LED and real motor state are extras, not
-        # worth failing the whole update (and marking the cover
-        # unavailable) over if this second request times out.
-        try:
-            debug_raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
-        except PowerShadesTimeoutError:
-            return data
-        debug_info = parse_debug_info_reply(debug_raw)
-        if debug_info is not None:
-            data = replace(
-                data,
-                io_green_led=debug_info.io_green_led,
-                motor_state=debug_info.motor_state,
-            )
         return data
 
     async def _async_command(self, op: int, payload: bytes = b"") -> None:

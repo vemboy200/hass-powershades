@@ -218,12 +218,16 @@ async def test_async_set_shade_name(coordinator) -> None:
     assert coordinator.device_name == TEST_NAME
 
 
-async def test_async_update_data_polls_status_and_debug_info(coordinator) -> None:
-    """Polling fetches status and debug info, adjusting the update interval."""
+async def test_async_update_data_polls_debug_info_only(coordinator) -> None:
+    """A normal poll gets position, battery and motor state from one
+    Debug Info request - Get Status is never sent when it succeeds."""
     data = await coordinator._async_update_data()
     assert data.position == 50
     assert data.motor_state == 0
     assert coordinator.update_interval.total_seconds() == 10
+
+    for call in coordinator.connection.async_request.call_args_list:
+        assert call.args[0] != OP_GET_STATUS
 
 
 async def test_async_update_data_raises_on_timeout(coordinator) -> None:
@@ -237,18 +241,3 @@ async def test_async_update_data_raises_on_timeout(coordinator) -> None:
 
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
-
-
-async def test_async_update_data_survives_debug_info_timeout(coordinator) -> None:
-    """A Debug Info timeout doesn't fail the whole update."""
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_GET_STATUS:
-            return status_packet(position=50)
-        raise PowerShadesTimeoutError("no reply")
-
-    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
-
-    data = await coordinator._async_update_data()
-    assert data.position == 50
-    assert data.motor_state is None

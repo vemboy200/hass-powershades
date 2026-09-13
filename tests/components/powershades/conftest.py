@@ -72,7 +72,13 @@ def shade_name_packet(name: str) -> bytes:
     return build_packet(OP_GET_SHADE_NAME, payload=payload)
 
 
-def debug_info_packet(*, green_led: bool = False, motor_state: int = 0) -> bytes:
+def debug_info_packet(
+    *,
+    green_led: bool = False,
+    motor_state: int = 0,
+    current_percent: int = 50,
+    battery_mv: int = 3700,
+) -> bytes:
     """Build a Get Debug Info reply packet."""
     payload = struct.pack(
         "<8BHhhhiiiiiIIff50s6B",
@@ -84,9 +90,9 @@ def debug_info_packet(*, green_led: bool = False, motor_state: int = 0) -> bytes
         0,
         0,
         0,  # 8 leading status bytes
-        0,  # BatteryVoltage
+        battery_mv,  # BatteryVoltage
         0,
-        0,
+        current_percent,
         0,  # target/current percent, motor duty cycle
         0,
         0,

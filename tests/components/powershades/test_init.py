@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from pyowershades import (
+    OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
     OP_GET_STATUS,
@@ -19,7 +20,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.powershades.const import DOMAIN
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
-from .conftest import TEST_IP, TEST_NAME, TEST_SERIAL, device_id_packet, status_packet
+from .conftest import (
+    TEST_IP,
+    TEST_NAME,
+    TEST_SERIAL,
+    debug_info_packet,
+    device_id_packet,
+    status_packet,
+)
 
 
 async def test_setup_entry_success(hass: HomeAssistant, config_entry) -> None:
@@ -88,6 +96,8 @@ async def test_setup_entry_clears_cannot_connect_issue(hass: HomeAssistant) -> N
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         if op == OP_GET_STATUS:
             return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
         return build_packet(op)
 
     with (
@@ -139,6 +149,8 @@ async def test_setup_entry_fills_in_missing_model(hass: HomeAssistant) -> None:
             return status_packet()
         if op == OP_GET_SERIAL:
             return serial_packet
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
         return build_packet(op)
 
     with (
@@ -172,6 +184,8 @@ async def test_setup_entry_fetches_firmware_version(hass: HomeAssistant) -> None
             return status_packet()
         if op == OP_GET_DEVICE_ID:
             return device_id_reply
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
         return build_packet(op)
 
     with (
