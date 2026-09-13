@@ -85,8 +85,8 @@ rules:
   # Gold
   devices: done
   comment: |
-    DeviceInfo includes identifiers, MAC connection, manufacturer, model, serial number
-    and firmware revision (sw_version)
+    DeviceInfo includes identifiers, MAC connection, manufacturer, model, serial number,
+    firmware revision (sw_version), and hardware generation (hw_version)
   diagnostics: done
   comment: |
     diagnostics.py returns the entry's data and the coordinator's current state,
@@ -118,9 +118,9 @@ rules:
     one device per config entry
   entity-category: done
   comment: |
-    diagnostic sensors (battery, voltage, LED color, error) and binary sensors (motor
-    awake, charging), diagnostic buttons (identify, reboot) and config buttons (toggle,
-    jog/limit tools) use entity_category appropriately
+    diagnostic sensors (battery, voltage, LED color, error, current/desired RPM, motor
+    power) and binary sensors (motor awake, charging), diagnostic buttons (identify,
+    reboot) and config buttons (toggle, jog/limit tools) use entity_category appropriately
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
@@ -130,9 +130,10 @@ rules:
     CoverDeviceClass.SHADE, and the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
-    battery, voltage and charging sensors, and the non-reversible limit buttons (set upper/
-    lower limit, clear limits, save limits), are entity_registry_enabled_default=False - the
-    latter since an accidental press could miscalibrate the shade's travel range. Jog/Step
+    battery, voltage, charging, current RPM, desired RPM and motor power sensors, and the
+    non-reversible limit buttons (set upper/lower limit, clear limits, save limits), are
+    entity_registry_enabled_default=False - the latter since an accidental press could
+    miscalibrate the shade's travel range. Jog/Step
     stay enabled since jogging/stepping the other way undoes them
   entity-translations: done
   comment: |

@@ -14,7 +14,7 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state
 - **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
-- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, and an Error sensor decoding the shade's logged error codes
+- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, an Error sensor decoding the shade's logged error codes, and Current RPM/Desired RPM/Motor Power sensors (disabled by default) for live motor telemetry while moving
 - **Binary Sensor Platform**: Motor Awake and Charging diagnostic sensors
 - **Services**: `powershades.set_shade_name`, for renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
@@ -97,6 +97,8 @@ An LED Color sensor (enabled by default) mirrors the shade's two physical status
 An Error sensor (enabled by default) decodes the shade's logged error codes (`PoEErrorCode` values like `Motor_Stall`, `TCP_Keep_Alive`, `Battery_Low_Power_Down`) into a named state, with `mdi:check-circle` when there's no error and `mdi:alert-circle` otherwise. The shade can log more than one error at once, but this sensor can only show one - it shows the most recent entry in the list. A code the integration doesn't recognize shows as `unknown` rather than failing.
 
 Two more diagnostic binary sensors are also available. **Motor Awake** (enabled by default) reflects a power-management state of the motor driver electronics - awake vs. low-power sleep after a period of inactivity - not whether the shade is actually moving; the shade can be fully idle and still "awake" simply from having been recently polled or commanded. Actual movement is what the cover's opening/closing state already tracks. **Charging** (disabled by default, like the battery/voltage sensors - enable it from the device page) reflects whether PoE is present and negotiated normally; in practice this reads on almost the entire time the shade is reachable at all, since a full PoE loss also cuts power to the whole device, so it's mainly useful for catching a degraded or under-negotiated PoE link the shade is still limping along on.
+
+**Current RPM**, **Desired RPM**, and **Motor Power** (disabled by default — enable from the device page) show live motor telemetry: the measured motor speed, the speed the motor controller is trying to reach, and its power level as a percentage. All three read 0 while the shade is idle. Comparing Current RPM against Desired RPM can reveal the motor struggling to reach its target speed (e.g. under load or resistance).
 
 ### Services
 
@@ -247,6 +249,8 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 - The diagnostics download now decodes the shade's error log (`PoEErrorCode` values) into readable names alongside the raw numbers, e.g. `TCP_Keep_Alive`, `Enter_Sleep_Mode`. Bumps the `pyowershades` dependency to 0.3.0, which added the decoder (`parse_error_list`, `POE_ERROR_CODES`) after reading how the official Config.NET app itself decodes this field
 - Added an Error sensor (Diagnostic, enabled by default) showing the shade's most recently logged error code by name, with a `mdi:check-circle`/`mdi:alert-circle` icon. The device can log more than one error at a time, but this sensor can only show one
 - Moved the Toggle Shade button to Configuration - it's not needed for everyday use since the cover entity already covers opening/closing/stopping. Like the entity-disabled-by-default changes above, this only affects newly-added shades; an existing Toggle Shade button keeps showing in the main entity list unless you change its category manually
+- Added Current RPM, Desired RPM, and Motor Power sensors (Diagnostic, disabled by default) for live motor telemetry - all three read 0 while idle
+- Device info now also shows a hardware version (`Gen 1`/`Gen 2`) alongside the existing firmware revision, from Get Device ID's model-version byte. `0 = Gen 1` is confirmed against real hardware; `2 = Gen 2` is the working hypothesis from the decompiled config app, not yet checked against an actual Gen 2 unit. Any other value shows as `Model version N` rather than guessing
 
 ### v0.9.0
 - Added Reboot and Save Limits buttons (Configuration)

@@ -124,7 +124,11 @@ def debug_info_packet(
 
 
 def device_id_packet(
-    *, low_rev: int = 0, high_rev: int = 0, status_bits: int = 0
+    *,
+    low_rev: int = 0,
+    high_rev: int = 0,
+    status_bits: int = 0,
+    model_version: int = 0,
 ) -> bytes:
     """Build a Get Device ID reply packet."""
     payload = struct.pack(
@@ -146,7 +150,7 @@ def device_id_packet(
         0,
         0,  # ip/subnet/gateway
         b"\x00" * 50,  # server_hostname
-        0,  # model_version
+        model_version,
     )
     return build_packet(OP_GET_DEVICE_ID, payload=payload)
 

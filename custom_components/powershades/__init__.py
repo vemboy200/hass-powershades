@@ -62,12 +62,23 @@ async def _async_backfill_model(
     )
 
 
-async def _async_fetch_firmware_version(coordinator: PowerShadesCoordinator) -> None:
-    """Fetch the active firmware bank's revision for the device info card.
+# model_version from Get Device ID. 0 = Gen 1 is confirmed by the
+# hardware's owner; 2 = Gen 2 is the working hypothesis from the
+# decompile but hasn't been checked against an actual Gen 2 unit.
+_MODEL_VERSION_NAMES = {
+    0: "Gen 1",
+    2: "Gen 2",
+}
 
-    Not persisted to entry data (unlike model) - it's refreshed on every
-    setup instead, since it can change after a firmware update. Best-effort:
-    silently leaves it unset on failure or an ambiguous active-bank flag.
+
+async def _async_fetch_device_id_info(coordinator: PowerShadesCoordinator) -> None:
+    """Fetch the active firmware bank's revision and hardware generation
+    for the device info card.
+
+    Neither is persisted to entry data (unlike model) - both are
+    refreshed on every setup instead, since firmware can change after
+    an update. Best-effort: silently leaves them unset on failure or
+    (for firmware_version) an ambiguous active-bank flag.
     """
     try:
         reply = await coordinator.connection.async_request(OP_GET_DEVICE_ID)
@@ -81,6 +92,9 @@ async def _async_fetch_firmware_version(coordinator: PowerShadesCoordinator) -> 
         coordinator.firmware_version = str(device_id.low_rev)
     elif active_bank == 2:
         coordinator.firmware_version = str(device_id.high_rev)
+    coordinator.hw_version = _MODEL_VERSION_NAMES.get(
+        device_id.model_version, f"Model version {device_id.model_version}"
+    )
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -122,7 +136,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.async_on_unload(connection.close)
 
     await _async_backfill_model(hass, entry, coordinator)
-    await _async_fetch_firmware_version(coordinator)
+    await _async_fetch_device_id_info(coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

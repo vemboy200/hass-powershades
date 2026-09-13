@@ -90,6 +90,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         self.mac_address: str | None = entry.data.get("mac")
         self.model: int | None = entry.data.get("model")
         self.firmware_version: str | None = None
+        self.hw_version: str | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -136,6 +137,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             model=model_name,
             serial_number=str(self.serial_number) if self.serial_number else None,
             sw_version=self.firmware_version,
+            hw_version=self.hw_version,
         )
 
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
