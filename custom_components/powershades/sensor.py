@@ -122,6 +122,7 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
     PowerShadesSensorDescription(
         key="current_rpm",
         translation_key="current_rpm",
+        icon="mdi:speedometer",
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -131,6 +132,9 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
     PowerShadesSensorDescription(
         key="desired_rpm",
         translation_key="desired_rpm",
+        # Distinct from Current RPM's speedometer - this is the setpoint
+        # being aimed for, not a measured value.
+        icon="mdi:target",
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -140,6 +144,7 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
     PowerShadesSensorDescription(
         key="motor_power",
         translation_key="motor_power",
+        icon="mdi:engine",
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,

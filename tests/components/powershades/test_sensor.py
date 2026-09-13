@@ -192,5 +192,8 @@ async def test_rpm_and_power_values_when_enabled(
         hass.states.get(entity_id) for entity_id in RPM_POWER_ENTITY_IDS
     )
     assert current_rpm.state == "42"
+    assert current_rpm.attributes["icon"] == "mdi:speedometer"
     assert desired_rpm.state == "60"
+    assert desired_rpm.attributes["icon"] == "mdi:target"
     assert motor_power.state == "75"
+    assert motor_power.attributes["icon"] == "mdi:engine"

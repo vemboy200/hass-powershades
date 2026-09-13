@@ -249,7 +249,7 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 - The diagnostics download now decodes the shade's error log (`PoEErrorCode` values) into readable names alongside the raw numbers, e.g. `TCP_Keep_Alive`, `Enter_Sleep_Mode`. Bumps the `pyowershades` dependency to 0.3.0, which added the decoder (`parse_error_list`, `POE_ERROR_CODES`) after reading how the official Config.NET app itself decodes this field
 - Added an Error sensor (Diagnostic, enabled by default) showing the shade's most recently logged error code by name, with a `mdi:check-circle`/`mdi:alert-circle` icon. The device can log more than one error at a time, but this sensor can only show one
 - Moved the Toggle Shade button to Configuration - it's not needed for everyday use since the cover entity already covers opening/closing/stopping. Like the entity-disabled-by-default changes above, this only affects newly-added shades; an existing Toggle Shade button keeps showing in the main entity list unless you change its category manually
-- Added Current RPM, Desired RPM, and Motor Power sensors (Diagnostic, disabled by default) for live motor telemetry - all three read 0 while idle
+- Added Current RPM (`mdi:speedometer`), Desired RPM (`mdi:target`), and Motor Power (`mdi:engine`) sensors (Diagnostic, disabled by default) for live motor telemetry - all three read 0 while idle
 - Device info now also shows a hardware version (`Gen 1`/`Gen 2`) alongside the existing firmware revision, from Get Device ID's model-version byte. `0 = Gen 1` is confirmed against real hardware; `2 = Gen 2` is the working hypothesis from the decompiled config app, not yet checked against an actual Gen 2 unit. Any other value shows as `Model version N` rather than guessing
 
 ### v0.9.0
