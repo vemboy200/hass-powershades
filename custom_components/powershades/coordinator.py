@@ -145,9 +145,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             battery_percentage=battery_percentage(status.battery_mv),
             io_green_led=self.data.io_green_led if self.data is not None else None,
             io_red_led=self.data.io_red_led if self.data is not None else None,
-            io_motor_sleep=self.data.io_motor_sleep
-            if self.data is not None
-            else None,
+            io_motor_sleep=self.data.io_motor_sleep if self.data is not None else None,
             io_poe_status=self.data.io_poe_status if self.data is not None else None,
             motor_state=self.data.motor_state if self.data is not None else None,
         )
