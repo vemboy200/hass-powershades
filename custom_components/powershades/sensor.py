@@ -12,7 +12,12 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotential
+from homeassistant.const import (
+    PERCENTAGE,
+    REVOLUTIONS_PER_MINUTE,
+    EntityCategory,
+    UnitOfElectricPotential,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -113,6 +118,33 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         icon_fn=lambda data: (
             "mdi:check-circle" if _current_error(data) == "none" else "mdi:alert-circle"
         ),
+    ),
+    PowerShadesSensorDescription(
+        key="current_rpm",
+        translation_key="current_rpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.velocity_rpm,
+    ),
+    PowerShadesSensorDescription(
+        key="desired_rpm",
+        translation_key="desired_rpm",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.desired_rpm,
+    ),
+    PowerShadesSensorDescription(
+        key="motor_power",
+        translation_key="motor_power",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.motor_duty_cycle,
     ),
 )
 

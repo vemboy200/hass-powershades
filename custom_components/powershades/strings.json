@@ -163,6 +163,15 @@
                     "motor_fight_back_function": "Motor Fight Back Function",
                     "erasing_flash_memory": "Erasing Flash Memory"
                 }
+            },
+            "current_rpm": {
+                "name": "Current RPM"
+            },
+            "desired_rpm": {
+                "name": "Desired RPM"
+            },
+            "motor_power": {
+                "name": "Motor Power"
             }
         },
         "binary_sensor": {

@@ -65,6 +65,9 @@ class PowerShadesData:
     io_poe_status: bool | None = None
     motor_state: int | None = None
     error_list: list[int] = field(default_factory=list)
+    velocity_rpm: int | None = None
+    desired_rpm: int | None = None
+    motor_duty_cycle: int | None = None
 
 
 class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
@@ -138,8 +141,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
         # Status pushes only carry position/battery - the Get Debug Info
         # fields (io_green_led, io_red_led, io_motor_sleep, io_poe_status,
-        # motor_state, error_list) are only refreshed by our own poll
-        # cycle, so carry the last known values forward here.
+        # motor_state, error_list, velocity_rpm, desired_rpm,
+        # motor_duty_cycle) are only refreshed by our own poll cycle, so
+        # carry the last known values forward here.
         return PowerShadesData(
             position=status.position,
             battery_mv=status.battery_mv,
@@ -150,6 +154,11 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_poe_status=self.data.io_poe_status if self.data is not None else None,
             motor_state=self.data.motor_state if self.data is not None else None,
             error_list=self.data.error_list if self.data is not None else [],
+            velocity_rpm=self.data.velocity_rpm if self.data is not None else None,
+            desired_rpm=self.data.desired_rpm if self.data is not None else None,
+            motor_duty_cycle=self.data.motor_duty_cycle
+            if self.data is not None
+            else None,
         )
 
     @callback
@@ -208,6 +217,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_poe_status=debug_info.io_poe_status,
             motor_state=debug_info.motor_state,
             error_list=debug_info.error_list,
+            velocity_rpm=debug_info.velocity_rpm,
+            desired_rpm=debug_info.desired_rpm,
+            motor_duty_cycle=debug_info.motor_duty_cycle,
         )
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)

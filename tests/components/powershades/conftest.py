@@ -82,6 +82,9 @@ def debug_info_packet(
     current_percent: int = 50,
     battery_mv: int = 3700,
     error_codes: list[int] | None = None,
+    velocity_rpm: int = 0,
+    desired_rpm: int = 0,
+    motor_duty_cycle: int = 0,
 ) -> bytes:
     """Build a Get Debug Info reply packet."""
     error_text = "".join(f"{code}," for code in (error_codes or []))
@@ -99,14 +102,14 @@ def debug_info_packet(
         battery_mv,  # BatteryVoltage
         0,
         current_percent,
-        0,  # target/current percent, motor duty cycle
+        motor_duty_cycle,  # target/current percent, motor duty cycle
         0,
         0,
         0,
         0,
         0,  # hall counts
-        0,
-        0,  # velocity/desired RPM
+        velocity_rpm,
+        desired_rpm,  # velocity/desired RPM
         0.0,
         0.0,  # thermistor temp, motor current
         error_bytes,  # error list

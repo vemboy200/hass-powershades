@@ -1,13 +1,22 @@
 """Tests for the PowerShades sensor platform."""
 
+from unittest.mock import AsyncMock
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from pyowershades import battery_percentage
+from pyowershades import OP_GET_DEBUG_INFO, battery_percentage
 
 from custom_components.powershades import coordinator as coordinator_module
 
+from .conftest import debug_info_packet
+
 LED_COLOR_ENTITY_ID = "sensor.powershade_bedroom_shade_led_color"
 ERROR_ENTITY_ID = "sensor.powershade_bedroom_shade_error"
+RPM_POWER_ENTITY_IDS = (
+    "sensor.powershade_bedroom_shade_current_rpm",
+    "sensor.powershade_bedroom_shade_desired_rpm",
+    "sensor.powershade_bedroom_shade_motor_power",
+)
 
 
 async def test_sensors_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
@@ -139,3 +148,49 @@ async def test_error_unknown_code(hass: HomeAssistant, config_entry) -> None:
     state = hass.states.get(ERROR_ENTITY_ID)
     assert state.state == "unknown"
     assert state.attributes["icon"] == "mdi:alert-circle"
+
+
+async def test_rpm_and_power_disabled_by_default(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """Current RPM, Desired RPM, and Motor Power are disabled by
+    default, like battery/voltage."""
+    registry = er.async_get(hass)
+
+    for entity_id in RPM_POWER_ENTITY_IDS:
+        entry = registry.async_get(entity_id)
+        assert entry is not None
+        assert entry.disabled
+
+
+async def test_rpm_and_power_values_when_enabled(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """Once enabled, the sensors report velocity, desired RPM, and
+    motor duty cycle from Debug Info."""
+    registry = er.async_get(hass)
+    for entity_id in RPM_POWER_ENTITY_IDS:
+        registry.async_update_entity(entity_id, disabled_by=None)
+
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = config_entry.runtime_data
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(
+                velocity_rpm=42, desired_rpm=60, motor_duty_cycle=75
+            )
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+    await coordinator.async_request_refresh()
+    await hass.async_block_till_done()
+
+    current_rpm, desired_rpm, motor_power = (
+        hass.states.get(entity_id) for entity_id in RPM_POWER_ENTITY_IDS
+    )
+    assert current_rpm.state == "42"
+    assert desired_rpm.state == "60"
+    assert motor_power.state == "75"

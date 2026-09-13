@@ -163,6 +163,15 @@
                     "motor_fight_back_function": "Fonction de résistance du moteur",
                     "erasing_flash_memory": "Effacement de la mémoire flash"
                 }
+            },
+            "current_rpm": {
+                "name": "RPM actuel"
+            },
+            "desired_rpm": {
+                "name": "RPM souhaité"
+            },
+            "motor_power": {
+                "name": "Puissance du moteur"
             }
         },
         "binary_sensor": {
