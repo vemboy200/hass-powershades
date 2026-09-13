@@ -254,3 +254,91 @@ async def test_setup_entry_fetches_hw_version(
 
     coordinator = entry.runtime_data
     assert coordinator.hw_version == expected_hw_version
+
+
+async def test_setup_entry_warns_on_rf_gateway(hass: HomeAssistant) -> None:
+    """A device that identifies as an RF Gateway raises a repair issue."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 100},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    issue_registry = ir.async_get(hass)
+    issue = issue_registry.async_get_issue(
+        DOMAIN, f"rf_gateway_unsupported_{entry.entry_id}"
+    )
+    assert issue is not None
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert not issue.is_fixable
+
+
+async def test_setup_entry_no_rf_gateway_issue_for_poe_shade(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """A normal PoE Shade never gets the RF Gateway repair issue."""
+    issue_registry = ir.async_get(hass)
+    assert (
+        issue_registry.async_get_issue(
+            DOMAIN, f"rf_gateway_unsupported_{config_entry.entry_id}"
+        )
+        is None
+    )
+
+
+async def test_unload_entry_clears_rf_gateway_issue(hass: HomeAssistant) -> None:
+    """Unloading an RF Gateway entry clears its repair issue."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 100},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        issue_registry = ir.async_get(hass)
+        issue_id = f"rf_gateway_unsupported_{entry.entry_id}"
+        assert issue_registry.async_get_issue(DOMAIN, issue_id)
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None

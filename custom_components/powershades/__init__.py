@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 from pyowershades import (
+    MODEL_RF_GATEWAY,
     OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
     PowerShadesConnection,
@@ -19,7 +20,7 @@ from pyowershades import (
     parse_serial_reply,
 )
 
-from .const import DOMAIN
+from .const import DOMAIN, RF_GATEWAY_ISSUE_URL
 from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 from .discovery import async_start_discovery
 from .services import async_setup_services
@@ -109,6 +110,40 @@ def _cannot_connect_issue_id(entry: PowerShadesConfigEntry) -> str:
     return f"cannot_connect_{entry.entry_id}"
 
 
+def _rf_gateway_issue_id(entry: PowerShadesConfigEntry) -> str:
+    """Return the repair issue ID for a device that is an RF Gateway."""
+    return f"rf_gateway_unsupported_{entry.entry_id}"
+
+
+def _async_check_rf_gateway(
+    hass: HomeAssistant,
+    entry: PowerShadesConfigEntry,
+    coordinator: PowerShadesCoordinator,
+) -> None:
+    """Warn if this entry's device identifies as an RF Gateway.
+
+    This integration is only built and tested against PoE shades - an RF
+    Gateway responding to the same opcodes is untested territory (see
+    docs/PROTOCOL.md's Channel field for why it can respond at all).
+    Non-fixable/informational only; the user can dismiss it from the
+    Repairs page like any other issue.
+    """
+    issue_id = _rf_gateway_issue_id(entry)
+    if coordinator.model != MODEL_RF_GATEWAY:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+        return
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        issue_id,
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="rf_gateway_unsupported",
+        translation_placeholders={"name": entry.title},
+        learn_more_url=RF_GATEWAY_ISSUE_URL,
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) -> bool:
     """Set up PowerShades from a config entry."""
     connection = PowerShadesConnection(entry.data["ip"])
@@ -137,6 +172,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
 
     await _async_backfill_model(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
+    _async_check_rf_gateway(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -147,4 +183,5 @@ async def async_unload_entry(
 ) -> bool:
     """Unload a config entry."""
     ir.async_delete_issue(hass, DOMAIN, _cannot_connect_issue_id(entry))
+    ir.async_delete_issue(hass, DOMAIN, _rf_gateway_issue_id(entry))
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

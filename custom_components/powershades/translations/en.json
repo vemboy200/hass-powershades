@@ -43,6 +43,10 @@
         "cannot_connect": {
             "title": "{name} is not responding",
             "description": "Home Assistant could not connect to the PowerShades shade \"{name}\" at {ip}.\n\nMake sure the shade is powered on and connected to the network, then reload the integration. If its IP address has changed, open the device's PowerShades entry, select **Reconfigure** and enter the new IP address."
+        },
+        "rf_gateway_unsupported": {
+            "title": "{name} identifies as an RF Gateway, not a PoE Shade",
+            "description": "Your device identifies as an RF Gateway, not a PoE Shade. The maintainer of hass-powershades (@vemboy200) cannot build or test this integration against RF gateways.\n\nThis can mean some entities may not work as expected, a future change could unknowingly break compatibility, and there's no support for features exclusive to RF gateways. On top of that, there's no documentation for this setup, and dynamic and stale device handling (which doesn't matter for PoE shades) isn't implemented, despite this integration claiming Platinum.\n\nPlease report your experience so this can be tracked and improved."
         }
     },
     "exceptions": {

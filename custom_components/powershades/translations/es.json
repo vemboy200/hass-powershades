@@ -43,6 +43,10 @@
         "cannot_connect": {
             "title": "{name} no responde",
             "description": "Home Assistant no pudo conectarse a la persiana PowerShades \"{name}\" en {ip}.\n\nAsegúrate de que la persiana esté encendida y conectada a la red, y luego recarga la integración. Si su dirección IP ha cambiado, abre la entrada de PowerShades del dispositivo, selecciona **Reconfigurar** e introduce la nueva dirección IP."
+        },
+        "rf_gateway_unsupported": {
+            "title": "{name} se identifica como un RF Gateway, no un PoE Shade",
+            "description": "Tu dispositivo se identifica como un RF Gateway, no un PoE Shade. El mantenedor de hass-powershades (@vemboy200) no puede compilar ni probar esta integración con RF gateways.\n\nEsto puede significar que algunas entidades no funcionen como se espera, que un futuro cambio rompa la compatibilidad sin darse cuenta, y que no haya soporte para funciones exclusivas de los RF gateways. Además, no hay documentación para esta configuración, y el manejo de dispositivos dinámicos y obsoletos (que no importa en los PoE Shades) no está implementado, a pesar de que esta integración afirma ser Platinum.\n\nPor favor, informa tu experiencia para que esto pueda rastrearse y mejorarse."
         }
     },
     "exceptions": {
