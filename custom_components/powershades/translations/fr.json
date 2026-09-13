@@ -123,11 +123,51 @@
                     "red": "Rouge",
                     "yellow": "Jaune"
                 }
+            },
+            "error": {
+                "name": "Erreur",
+                "state": {
+                    "none": "Aucune",
+                    "unknown": "Inconnue",
+                    "motor_stall": "Moteur bloqué",
+                    "motor_stop_function": "Fonction d'arrêt du moteur",
+                    "active_motor_stop_function": "Fonction d'arrêt actif du moteur",
+                    "tcp_crc_mismatch": "Incohérence CRC TCP",
+                    "tcp_firmware_update": "Mise à jour du micrologiciel TCP",
+                    "reboot_function": "Fonction de redémarrage",
+                    "motor_over_current": "Surintensité du moteur",
+                    "flash_save_function": "Fonction d'enregistrement flash",
+                    "tcp_keep_alive": "TCP Keep Alive",
+                    "tcp_key_exchange": "Échange de clés TCP",
+                    "tcp_get_id": "Obtention de l'ID TCP",
+                    "tcp_get_status": "Obtention du statut TCP",
+                    "tcp_set_clock": "Réglage de l'horloge TCP",
+                    "tcp_erase_schedules": "Effacement des horaires TCP",
+                    "tcp_add_schedule": "Ajout d'horaire TCP",
+                    "tcp_set_position": "Réglage de position TCP",
+                    "tcp_save_position": "Enregistrement de position TCP",
+                    "tcp_recall_position": "Rappel de position TCP",
+                    "tcp_reboot": "Redémarrage TCP",
+                    "tcp_set_timeout": "Réglage du délai d'expiration TCP",
+                    "enter_sleep_mode": "Entrée en mode veille",
+                    "exit_sleep_mode": "Sortie du mode veille",
+                    "battery_low_power_down": "Arrêt pour batterie faible",
+                    "eth_rx_overflow": "Débordement de réception ETH",
+                    "eth_tx_overflow": "Débordement de transmission ETH",
+                    "dns_timer_expired": "Délai DNS expiré",
+                    "dns_not_bound": "DNS non lié",
+                    "host_timeout": "Délai d'attente de l'hôte expiré",
+                    "tcp_send_failed": "Échec d'envoi TCP",
+                    "rx_length_mismatch": "Incohérence de longueur de réception",
+                    "send_timer_expired": "Délai d'envoi expiré",
+                    "motor_fight_back_function": "Fonction de résistance du moteur",
+                    "erasing_flash_memory": "Effacement de la mémoire flash"
+                }
             }
         },
         "binary_sensor": {
-            "motor_running": {
-                "name": "Moteur en marche"
+            "motor_awake": {
+                "name": "Moteur éveillé"
             },
             "charging": {
                 "name": "En charge"

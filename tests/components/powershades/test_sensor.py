@@ -7,6 +7,7 @@ from pyowershades import battery_percentage
 from custom_components.powershades import coordinator as coordinator_module
 
 LED_COLOR_ENTITY_ID = "sensor.powershade_bedroom_shade_led_color"
+ERROR_ENTITY_ID = "sensor.powershade_bedroom_shade_error"
 
 
 async def test_sensors_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
@@ -51,9 +52,10 @@ async def test_led_color_enabled_by_default(hass: HomeAssistant, config_entry) -
 
 
 async def test_led_color_off_by_default(hass: HomeAssistant, config_entry) -> None:
-    """With both LEDs off, the sensor reports off."""
+    """With both LEDs off, the sensor reports off with the outline icon."""
     state = hass.states.get(LED_COLOR_ENTITY_ID)
     assert state.state == "off"
+    assert state.attributes["icon"] == "mdi:led-outline"
 
 
 async def test_led_color_green(hass: HomeAssistant, config_entry) -> None:
@@ -66,6 +68,7 @@ async def test_led_color_green(hass: HomeAssistant, config_entry) -> None:
 
     state = hass.states.get(LED_COLOR_ENTITY_ID)
     assert state.state == "green"
+    assert state.attributes["icon"] == "mdi:led-on"
 
 
 async def test_led_color_red(hass: HomeAssistant, config_entry) -> None:
@@ -90,3 +93,49 @@ async def test_led_color_yellow(hass: HomeAssistant, config_entry) -> None:
 
     state = hass.states.get(LED_COLOR_ENTITY_ID)
     assert state.state == "yellow"
+
+
+async def test_error_enabled_by_default(hass: HomeAssistant, config_entry) -> None:
+    """The error sensor is enabled by default, like LED color."""
+    registry = er.async_get(hass)
+    entry = registry.async_get(ERROR_ENTITY_ID)
+
+    assert entry is not None
+    assert not entry.disabled
+
+
+async def test_error_none_by_default(hass: HomeAssistant, config_entry) -> None:
+    """With no logged errors, the sensor reports none with a check icon."""
+    state = hass.states.get(ERROR_ENTITY_ID)
+    assert state.state == "none"
+    assert state.attributes["icon"] == "mdi:check-circle"
+
+
+async def test_error_shows_most_recent_code(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """With multiple logged errors, the last one in the list is shown,
+    with the alert icon."""
+    coordinator = config_entry.runtime_data
+    coordinator.async_set_updated_data(
+        coordinator_module.PowerShadesData(error_list=[9, 21])
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(ERROR_ENTITY_ID)
+    assert state.state == "enter_sleep_mode"
+    assert state.attributes["icon"] == "mdi:alert-circle"
+
+
+async def test_error_unknown_code(hass: HomeAssistant, config_entry) -> None:
+    """A code outside 1-33 reports unknown rather than crashing or
+    reporting an invalid ENUM state."""
+    coordinator = config_entry.runtime_data
+    coordinator.async_set_updated_data(
+        coordinator_module.PowerShadesData(error_list=[255])
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(ERROR_ENTITY_ID)
+    assert state.state == "unknown"
+    assert state.attributes["icon"] == "mdi:alert-circle"

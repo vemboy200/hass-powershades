@@ -16,6 +16,7 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotent
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
+from pyowershades import POE_ERROR_CODES
 
 from .coordinator import (
     PowerShadesConfigEntry,
@@ -29,6 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
 
 LED_COLOR_OPTIONS = ["off", "green", "red", "yellow"]
+
+# "none" (no error) and "unknown" (a code outside 1-33, e.g. from a firmware
+# version not covered by POE_ERROR_CODES) aren't PoEErrorCode values
+# themselves, but need to be valid ENUM options too.
+ERROR_OPTIONS = ["none", "unknown", *(name.lower() for name in POE_ERROR_CODES.values())]
 
 
 def _led_color(data: PowerShadesData) -> str | None:
@@ -44,11 +50,27 @@ def _led_color(data: PowerShadesData) -> str | None:
     return "off"
 
 
+def _current_error(data: PowerShadesData) -> str:
+    """Return the most recent error code's name, or "none".
+
+    error_list can hold multiple codes at once, but this sensor can only
+    show one - the most recently logged one (the last entry). Whether
+    the device actually logs oldest-to-newest or newest-to-oldest isn't
+    confirmed (every real capture so far has been empty), so this is a
+    reasonable guess, not a verified fact.
+    """
+    if not data.error_list:
+        return "none"
+    name = POE_ERROR_CODES.get(data.error_list[-1])
+    return name.lower() if name is not None else "unknown"
+
+
 @dataclass(frozen=True, kw_only=True)
 class PowerShadesSensorDescription(SensorEntityDescription):
     """Describes a PowerShades sensor."""
 
     value_fn: Callable[[PowerShadesData], StateType]
+    icon_fn: Callable[[PowerShadesData], str | None] | None = None
 
 
 SENSORS: tuple[PowerShadesSensorDescription, ...] = (
@@ -77,6 +99,20 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         options=LED_COLOR_OPTIONS,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_led_color,
+        icon_fn=lambda data: (
+            "mdi:led-outline" if _led_color(data) in (None, "off") else "mdi:led-on"
+        ),
+    ),
+    PowerShadesSensorDescription(
+        key="error",
+        translation_key="error",
+        device_class=SensorDeviceClass.ENUM,
+        options=ERROR_OPTIONS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_current_error,
+        icon_fn=lambda data: (
+            "mdi:check-circle" if _current_error(data) == "none" else "mdi:alert-circle"
+        ),
     ),
 )
 
@@ -111,3 +147,10 @@ class PowerShadesSensor(PowerShadesEntity, SensorEntity):
     def native_value(self) -> StateType:
         """Return the sensor value."""
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def icon(self) -> str | None:
+        """Return a state-dependent icon, if this sensor has one."""
+        if self.entity_description.icon_fn is None:
+            return super().icon
+        return self.entity_description.icon_fn(self.coordinator.data)

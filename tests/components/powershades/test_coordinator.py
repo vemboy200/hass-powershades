@@ -57,18 +57,19 @@ def test_data_from_status_basic(coordinator) -> None:
 
 
 def test_data_from_status_carries_forward_debug_info(coordinator) -> None:
-    """Status pushes don't carry io_green_led/io_red_led/motor_state -
-    the last known values (from the coordinator's own Debug Info poll)
-    are kept."""
+    """Status pushes don't carry io_green_led/io_red_led/motor_state/
+    error_list - the last known values (from the coordinator's own
+    Debug Info poll) are kept."""
     coordinator.async_set_updated_data(
         coordinator_module.PowerShadesData(
-            io_green_led=True, io_red_led=True, motor_state=2
+            io_green_led=True, io_red_led=True, motor_state=2, error_list=[9, 21]
         )
     )
     data = coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
     assert data.io_green_led is True
     assert data.io_red_led is True
     assert data.motor_state == 2
+    assert data.error_list == [9, 21]
 
 
 async def test_async_set_position_sends_command(coordinator) -> None:
@@ -228,10 +229,25 @@ async def test_async_update_data_polls_debug_info_only(coordinator) -> None:
     data = await coordinator._async_update_data()
     assert data.position == 50
     assert data.motor_state == 0
+    assert data.error_list == []
     assert coordinator.update_interval.total_seconds() == 10
 
     for call in coordinator.connection.async_request.call_args_list:
         assert call.args[0] != OP_GET_STATUS
+
+
+async def test_async_update_data_decodes_error_list(coordinator) -> None:
+    """A poll decodes Debug Info's error list into PoEErrorCode values."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(error_codes=[9, 21])
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    data = await coordinator._async_update_data()
+    assert data.error_list == [9, 21]
 
 
 async def test_async_update_data_raises_on_timeout(coordinator) -> None:

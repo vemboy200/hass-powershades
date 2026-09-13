@@ -81,8 +81,11 @@ def debug_info_packet(
     motor_state: int = 0,
     current_percent: int = 50,
     battery_mv: int = 3700,
+    error_codes: list[int] | None = None,
 ) -> bytes:
     """Build a Get Debug Info reply packet."""
+    error_text = "".join(f"{code}," for code in (error_codes or []))
+    error_bytes = error_text.encode("ascii").ljust(50, b"\x00")[:50]
     payload = struct.pack(
         "<8BHhhhiiiiiIIff50s6B",
         0,
@@ -106,7 +109,7 @@ def debug_info_packet(
         0,  # velocity/desired RPM
         0.0,
         0.0,  # thermistor temp, motor current
-        b"\x00" * 50,  # error list
+        error_bytes,  # error list
         int(red_led),
         int(green_led),
         int(motor_sleep),

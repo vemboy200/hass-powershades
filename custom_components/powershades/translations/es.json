@@ -123,11 +123,51 @@
                     "red": "Rojo",
                     "yellow": "Amarillo"
                 }
+            },
+            "error": {
+                "name": "Error",
+                "state": {
+                    "none": "Ninguno",
+                    "unknown": "Desconocido",
+                    "motor_stall": "Motor detenido",
+                    "motor_stop_function": "Función de parada del motor",
+                    "active_motor_stop_function": "Función de parada activa del motor",
+                    "tcp_crc_mismatch": "Discrepancia de CRC TCP",
+                    "tcp_firmware_update": "Actualización de firmware TCP",
+                    "reboot_function": "Función de reinicio",
+                    "motor_over_current": "Sobrecorriente del motor",
+                    "flash_save_function": "Función de guardado en flash",
+                    "tcp_keep_alive": "TCP Keep Alive",
+                    "tcp_key_exchange": "Intercambio de claves TCP",
+                    "tcp_get_id": "Obtención de ID TCP",
+                    "tcp_get_status": "Obtención de estado TCP",
+                    "tcp_set_clock": "Ajuste de reloj TCP",
+                    "tcp_erase_schedules": "Borrado de horarios TCP",
+                    "tcp_add_schedule": "Adición de horario TCP",
+                    "tcp_set_position": "Ajuste de posición TCP",
+                    "tcp_save_position": "Guardado de posición TCP",
+                    "tcp_recall_position": "Recuperación de posición TCP",
+                    "tcp_reboot": "Reinicio TCP",
+                    "tcp_set_timeout": "Ajuste de tiempo de espera TCP",
+                    "enter_sleep_mode": "Entrada en modo de suspensión",
+                    "exit_sleep_mode": "Salida del modo de suspensión",
+                    "battery_low_power_down": "Apagado por batería baja",
+                    "eth_rx_overflow": "Desbordamiento de recepción ETH",
+                    "eth_tx_overflow": "Desbordamiento de transmisión ETH",
+                    "dns_timer_expired": "Tiempo de espera de DNS agotado",
+                    "dns_not_bound": "DNS no vinculado",
+                    "host_timeout": "Tiempo de espera del host agotado",
+                    "tcp_send_failed": "Fallo de envío TCP",
+                    "rx_length_mismatch": "Discrepancia en la longitud de recepción",
+                    "send_timer_expired": "Tiempo de envío agotado",
+                    "motor_fight_back_function": "Función de resistencia del motor",
+                    "erasing_flash_memory": "Borrando memoria flash"
+                }
             }
         },
         "binary_sensor": {
-            "motor_running": {
-                "name": "Motor en marcha"
+            "motor_awake": {
+                "name": "Motor despierto"
             },
             "charging": {
                 "name": "Cargando"

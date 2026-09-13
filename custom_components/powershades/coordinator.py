@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import override
 
@@ -64,6 +64,7 @@ class PowerShadesData:
     io_motor_sleep: bool | None = None
     io_poe_status: bool | None = None
     motor_state: int | None = None
+    error_list: list[int] = field(default_factory=list)
 
 
 class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
@@ -137,8 +138,8 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
         # Status pushes only carry position/battery - the Get Debug Info
         # fields (io_green_led, io_red_led, io_motor_sleep, io_poe_status,
-        # motor_state) are only refreshed by our own poll cycle, so carry
-        # the last known values forward here.
+        # motor_state, error_list) are only refreshed by our own poll
+        # cycle, so carry the last known values forward here.
         return PowerShadesData(
             position=status.position,
             battery_mv=status.battery_mv,
@@ -148,6 +149,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_motor_sleep=self.data.io_motor_sleep if self.data is not None else None,
             io_poe_status=self.data.io_poe_status if self.data is not None else None,
             motor_state=self.data.motor_state if self.data is not None else None,
+            error_list=self.data.error_list if self.data is not None else [],
         )
 
     @callback
@@ -205,6 +207,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_motor_sleep=debug_info.io_motor_sleep,
             io_poe_status=debug_info.io_poe_status,
             motor_state=debug_info.motor_state,
+            error_list=debug_info.error_list,
         )
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)

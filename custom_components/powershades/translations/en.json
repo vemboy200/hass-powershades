@@ -123,11 +123,51 @@
                     "red": "Red",
                     "yellow": "Yellow"
                 }
+            },
+            "error": {
+                "name": "Error",
+                "state": {
+                    "none": "None",
+                    "unknown": "Unknown",
+                    "motor_stall": "Motor Stall",
+                    "motor_stop_function": "Motor Stop Function",
+                    "active_motor_stop_function": "Active Motor Stop Function",
+                    "tcp_crc_mismatch": "TCP CRC Mismatch",
+                    "tcp_firmware_update": "TCP Firmware Update",
+                    "reboot_function": "Reboot Function",
+                    "motor_over_current": "Motor Over Current",
+                    "flash_save_function": "Flash Save Function",
+                    "tcp_keep_alive": "TCP Keep Alive",
+                    "tcp_key_exchange": "TCP Key Exchange",
+                    "tcp_get_id": "TCP Get ID",
+                    "tcp_get_status": "TCP Get Status",
+                    "tcp_set_clock": "TCP Set Clock",
+                    "tcp_erase_schedules": "TCP Erase Schedules",
+                    "tcp_add_schedule": "TCP Add Schedule",
+                    "tcp_set_position": "TCP Set Position",
+                    "tcp_save_position": "TCP Save Position",
+                    "tcp_recall_position": "TCP Recall Position",
+                    "tcp_reboot": "TCP Reboot",
+                    "tcp_set_timeout": "TCP Set Timeout",
+                    "enter_sleep_mode": "Enter Sleep Mode",
+                    "exit_sleep_mode": "Exit Sleep Mode",
+                    "battery_low_power_down": "Battery Low Power Down",
+                    "eth_rx_overflow": "ETH RX Overflow",
+                    "eth_tx_overflow": "ETH TX Overflow",
+                    "dns_timer_expired": "DNS Timer Expired",
+                    "dns_not_bound": "DNS Not Bound",
+                    "host_timeout": "Host Timeout",
+                    "tcp_send_failed": "TCP Send Failed",
+                    "rx_length_mismatch": "RX Length Mismatch",
+                    "send_timer_expired": "Send Timer Expired",
+                    "motor_fight_back_function": "Motor Fight Back Function",
+                    "erasing_flash_memory": "Erasing Flash Memory"
+                }
             }
         },
         "binary_sensor": {
-            "motor_running": {
-                "name": "Motor Running"
+            "motor_awake": {
+                "name": "Motor Awake"
             },
             "charging": {
                 "name": "Charging"

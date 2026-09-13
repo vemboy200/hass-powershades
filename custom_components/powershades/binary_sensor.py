@@ -36,10 +36,16 @@ class PowerShadesBinarySensorDescription(BinarySensorEntityDescription):
 
 BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
     PowerShadesBinarySensorDescription(
-        key="motor_running",
-        translation_key="motor_running",
-        device_class=BinarySensorDeviceClass.RUNNING,
+        key="motor_awake",
+        translation_key="motor_awake",
         entity_category=EntityCategory.DIAGNOSTIC,
+        # This is a power-management state of the motor driver electronics
+        # (awake vs. low-power sleep after inactivity), not a live-motion
+        # indicator - the shade can be fully idle and still "awake" simply
+        # from having been recently polled or commanded. Actual movement
+        # is motor_state, already used by the cover's opening/closing
+        # state. No device_class fits "awake vs. asleep" honestly, so
+        # this is left generic rather than implying motion.
         value_fn=lambda data: (
             None if data.io_motor_sleep is None else not data.io_motor_sleep
         ),
@@ -49,6 +55,7 @@ BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
         translation_key="charging",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         # Reads True whenever PoE is present and negotiated normally, which
         # in practice is true almost the entire time the shade is reachable
         # at all - a full PoE loss also means no power to answer polls. The
