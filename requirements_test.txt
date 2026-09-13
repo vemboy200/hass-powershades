@@ -1,2 +1,5 @@
 pytest-homeassistant-custom-component==0.13.316
-pyowershades==0.3.0
+# TODO: switch back to a PyPI version pin (pyowershades==0.3.0) once that
+# release is actually published - pinned to a commit in the meantime since
+# 0.3.0 isn't on PyPI yet.
+pyowershades @ git+https://github.com/vemboy200/Pyowershades.git@ad39696
