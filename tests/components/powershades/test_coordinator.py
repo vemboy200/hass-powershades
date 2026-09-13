@@ -57,13 +57,17 @@ def test_data_from_status_basic(coordinator) -> None:
 
 
 def test_data_from_status_carries_forward_debug_info(coordinator) -> None:
-    """Status pushes don't carry io_green_led/motor_state - the last known
-    values (from the coordinator's own Debug Info poll) are kept."""
+    """Status pushes don't carry io_green_led/io_red_led/motor_state -
+    the last known values (from the coordinator's own Debug Info poll)
+    are kept."""
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(io_green_led=True, motor_state=2)
+        coordinator_module.PowerShadesData(
+            io_green_led=True, io_red_led=True, motor_state=2
+        )
     )
     data = coordinator._data_from_status(StatusReply(position=50, battery_mv=3700))
     assert data.io_green_led is True
+    assert data.io_red_led is True
     assert data.motor_state == 2
 
 

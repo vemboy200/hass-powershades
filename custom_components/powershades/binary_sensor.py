@@ -36,11 +36,25 @@ class PowerShadesBinarySensorDescription(BinarySensorEntityDescription):
 
 BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
     PowerShadesBinarySensorDescription(
-        key="green_led",
-        translation_key="green_led",
-        device_class=BinarySensorDeviceClass.LIGHT,
+        key="motor_running",
+        translation_key="motor_running",
+        device_class=BinarySensorDeviceClass.RUNNING,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.io_green_led,
+        value_fn=lambda data: (
+            None if data.io_motor_sleep is None else not data.io_motor_sleep
+        ),
+    ),
+    PowerShadesBinarySensorDescription(
+        key="charging",
+        translation_key="charging",
+        device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        # Reads True whenever PoE is present and negotiated normally, which
+        # in practice is true almost the entire time the shade is reachable
+        # at all - a full PoE loss also means no power to answer polls. The
+        # case this actually catches is a degraded/under-negotiated PoE
+        # link the shade is still limping along on.
+        value_fn=lambda data: data.io_poe_status,
     ),
 )
 
@@ -74,5 +88,5 @@ class PowerShadesBinarySensor(PowerShadesEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Return true if the LED is on."""
+        """Return true if the condition is met."""
         return self.entity_description.value_fn(self.coordinator.data)

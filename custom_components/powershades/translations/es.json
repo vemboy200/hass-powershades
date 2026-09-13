@@ -114,9 +114,23 @@
                 "name": "Guardar límites"
             }
         },
+        "sensor": {
+            "led_color": {
+                "name": "Color del LED",
+                "state": {
+                    "off": "Apagado",
+                    "green": "Verde",
+                    "red": "Rojo",
+                    "yellow": "Amarillo"
+                }
+            }
+        },
         "binary_sensor": {
-            "green_led": {
-                "name": "LED verde"
+            "motor_running": {
+                "name": "Motor en marcha"
+            },
+            "charging": {
+                "name": "Cargando"
             }
         }
     }

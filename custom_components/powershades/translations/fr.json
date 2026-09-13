@@ -114,9 +114,23 @@
                 "name": "Enregistrer les limites"
             }
         },
+        "sensor": {
+            "led_color": {
+                "name": "Couleur de la LED",
+                "state": {
+                    "off": "Éteint",
+                    "green": "Vert",
+                    "red": "Rouge",
+                    "yellow": "Jaune"
+                }
+            }
+        },
         "binary_sensor": {
-            "green_led": {
-                "name": "LED verte"
+            "motor_running": {
+                "name": "Moteur en marche"
+            },
+            "charging": {
+                "name": "En charge"
             }
         }
     }

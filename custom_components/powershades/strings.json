@@ -114,9 +114,23 @@
                 "name": "Save Limits"
             }
         },
+        "sensor": {
+            "led_color": {
+                "name": "LED Color",
+                "state": {
+                    "off": "Off",
+                    "green": "Green",
+                    "red": "Red",
+                    "yellow": "Yellow"
+                }
+            }
+        },
         "binary_sensor": {
-            "green_led": {
-                "name": "Green LED"
+            "motor_running": {
+                "name": "Motor Running"
+            },
+            "charging": {
+                "name": "Charging"
             }
         }
     }

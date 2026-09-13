@@ -75,6 +75,9 @@ def shade_name_packet(name: str) -> bytes:
 def debug_info_packet(
     *,
     green_led: bool = False,
+    red_led: bool = False,
+    motor_sleep: bool = False,
+    poe_status: bool = True,
     motor_state: int = 0,
     current_percent: int = 50,
     battery_mv: int = 3700,
@@ -104,12 +107,12 @@ def debug_info_packet(
         0.0,
         0.0,  # thermistor temp, motor current
         b"\x00" * 50,  # error list
-        0,
+        int(red_led),
         int(green_led),
+        int(motor_sleep),
         0,
         0,
-        0,
-        0,  # LEDs / IO booleans
+        int(poe_status),  # LEDs / IO booleans
     )
     return build_packet(OP_GET_DEBUG_INFO, payload=payload)
 

@@ -60,6 +60,9 @@ class PowerShadesData:
     battery_mv: int | None = None
     battery_percentage: int | None = None
     io_green_led: bool | None = None
+    io_red_led: bool | None = None
+    io_motor_sleep: bool | None = None
+    io_poe_status: bool | None = None
     motor_state: int | None = None
 
 
@@ -133,13 +136,19 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
         # Status pushes only carry position/battery - the Get Debug Info
-        # fields (io_green_led, motor_state) are only refreshed by our own
-        # poll cycle, so carry the last known values forward here.
+        # fields (io_green_led, io_red_led, io_motor_sleep, io_poe_status,
+        # motor_state) are only refreshed by our own poll cycle, so carry
+        # the last known values forward here.
         return PowerShadesData(
             position=status.position,
             battery_mv=status.battery_mv,
             battery_percentage=battery_percentage(status.battery_mv),
             io_green_led=self.data.io_green_led if self.data is not None else None,
+            io_red_led=self.data.io_red_led if self.data is not None else None,
+            io_motor_sleep=self.data.io_motor_sleep
+            if self.data is not None
+            else None,
+            io_poe_status=self.data.io_poe_status if self.data is not None else None,
             motor_state=self.data.motor_state if self.data is not None else None,
         )
 
@@ -149,9 +158,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
         Sets data directly instead of calling async_set_updated_data(),
         which also cancels and reschedules the poll timer. Get Debug Info
-        (motor_state, io_green_led) has no push equivalent and is only
-        ever refreshed by that poll, so letting frequent pushes keep
-        deferring it would delay those fields for no benefit.
+        (motor_state, io_green_led, io_red_led) has no push equivalent and
+        is only ever refreshed by that poll, so letting frequent pushes
+        keep deferring it would delay those fields for no benefit.
         """
         self.data = self._data_from_status(status)
         self.last_update_success = True
@@ -162,9 +171,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         """Poll the device for status via a single Debug Info request.
 
         Debug Info carries position and battery in addition to
-        motor_state/io_green_led, so there's no need to also poll Get
-        Status - it's only still used for real-time push, since the
-        shade only ever sends that op unsolicited.
+        motor_state/io_green_led/io_red_led, so there's no need to also
+        poll Get Status - it's only still used for real-time push, since
+        the shade only ever sends that op unsolicited.
         """
         try:
             raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
@@ -194,6 +203,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             battery_mv=debug_info.battery_mv,
             battery_percentage=battery_percentage(debug_info.battery_mv),
             io_green_led=debug_info.io_green_led,
+            io_red_led=debug_info.io_red_led,
+            io_motor_sleep=debug_info.io_motor_sleep,
+            io_poe_status=debug_info.io_poe_status,
             motor_state=debug_info.motor_state,
         )
         # Poll faster while the position is unknown

@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
 from .coordinator import (
     PowerShadesConfigEntry,
@@ -27,12 +28,27 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
+LED_COLOR_OPTIONS = ["off", "green", "red", "yellow"]
+
+
+def _led_color(data: PowerShadesData) -> str | None:
+    """Combine the green/red LEDs into a single color - both on is yellow."""
+    if data.io_green_led is None or data.io_red_led is None:
+        return None
+    if data.io_green_led and data.io_red_led:
+        return "yellow"
+    if data.io_green_led:
+        return "green"
+    if data.io_red_led:
+        return "red"
+    return "off"
+
 
 @dataclass(frozen=True, kw_only=True)
 class PowerShadesSensorDescription(SensorEntityDescription):
     """Describes a PowerShades sensor."""
 
-    value_fn: Callable[[PowerShadesData], int | None]
+    value_fn: Callable[[PowerShadesData], StateType]
 
 
 SENSORS: tuple[PowerShadesSensorDescription, ...] = (
@@ -53,6 +69,14 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda data: data.battery_mv,
+    ),
+    PowerShadesSensorDescription(
+        key="led_color",
+        translation_key="led_color",
+        device_class=SensorDeviceClass.ENUM,
+        options=LED_COLOR_OPTIONS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_led_color,
     ),
 )
 
@@ -84,6 +108,6 @@ class PowerShadesSensor(PowerShadesEntity, SensorEntity):
         self.entity_description = description
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> StateType:
         """Return the sensor value."""
         return self.entity_description.value_fn(self.coordinator.data)
