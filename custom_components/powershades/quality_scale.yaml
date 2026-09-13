@@ -155,11 +155,12 @@ rules:
     matches the entry's unique_id
   repair-issues: done
   comment: |
-    a repair issue is created if the config entry fails its first refresh
-    (cannot_connect), and cleared once setup succeeds or the entry is unloaded;
-    a separate, non-fixable warning issue is created if the device identifies
-    as an RF Gateway rather than a PoE Shade, since this integration is only
-    built and tested against PoE shades
+    a device not responding is handled by test-before-setup's ConfigEntryNotReady
+    retry, not a repair issue - that's a transient condition, not something the
+    user needs to act on; a non-fixable warning repair issue is created (and
+    cleared on unload) if the device identifies as an RF Gateway rather than a
+    PoE Shade instead, since this integration is only built and tested against
+    PoE shades and that's a persistent fact worth surfacing
   stale-devices: exempt
   comment: |
     single device per config entry, nothing to go stale independently
