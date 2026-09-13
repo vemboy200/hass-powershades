@@ -90,7 +90,8 @@ rules:
   diagnostics: done
   comment: |
     diagnostics.py returns the entry's data and the coordinator's current state,
-    redacting the ip, mac, serial and unique_id
+    redacting the ip, mac, serial and unique_id, and adds decoded PoEErrorCode names
+    alongside the raw error_list numbers
   discovery-update-info: done
   comment: |
     rediscovery updates the stored IP (and MAC) via _abort_if_unique_id_configured(updates=...)
@@ -117,23 +118,26 @@ rules:
     one device per config entry
   entity-category: done
   comment: |
-    diagnostic sensors (battery, voltage, LED color) and binary sensors (motor running,
-    charging), diagnostic buttons (identify, reboot) and config buttons (jog/limit tools)
-    use entity_category appropriately
+    diagnostic sensors (battery, voltage, LED color, error) and binary sensors (motor
+    awake, charging), diagnostic buttons (identify, reboot) and config buttons (toggle,
+    jog/limit tools) use entity_category appropriately
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
-    the LED color sensor uses SensorDeviceClass.ENUM, the motor running binary sensor uses
-    BinarySensorDeviceClass.RUNNING, the charging binary sensor uses
-    BinarySensorDeviceClass.BATTERY_CHARGING, cover uses CoverDeviceClass.SHADE, and
-    the reboot button uses ButtonDeviceClass.RESTART
+    the LED color and error sensors use SensorDeviceClass.ENUM, the charging binary sensor uses
+    BinarySensorDeviceClass.BATTERY_CHARGING (motor awake has no device_class - it reflects a
+    power-management state, not motion, and no class fits that honestly), cover uses
+    CoverDeviceClass.SHADE, and the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
-    battery and voltage sensors are entity_registry_enabled_default=False
+    battery, voltage and charging sensors, and the non-reversible limit buttons (set upper/
+    lower limit, clear limits, save limits), are entity_registry_enabled_default=False - the
+    latter since an accidental press could miscalibrate the shade's travel range. Jog/Step
+    stay enabled since jogging/stepping the other way undoes them
   entity-translations: done
   comment: |
     button, sensor and binary_sensor entities use translation_key with names (and, for the
-    enum LED color sensor, per-state names) defined under
+    enum LED color and error sensors, per-state names) defined under
     entity.button/entity.sensor/entity.binary_sensor in strings.json/translations
   exception-translations: done
   comment: |

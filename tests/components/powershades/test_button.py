@@ -40,9 +40,17 @@ async def test_button_press_sends_command(
     hass: HomeAssistant, config_entry, key: str, expected_call: tuple
 ) -> None:
     """Pressing a button sends the expected command to the device."""
-    coordinator = config_entry.runtime_data
     entity_id = f"button.powershade_bedroom_shade_{key}"
 
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    assert entry is not None
+    if entry.disabled:
+        registry.async_update_entity(entity_id, disabled_by=None)
+        await hass.config_entries.async_reload(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    coordinator = config_entry.runtime_data
     await hass.services.async_call(
         "button", "press", {"entity_id": entity_id}, blocking=True
     )
@@ -63,6 +71,36 @@ async def test_toggle_button_toggles_shade(hass: HomeAssistant, config_entry) ->
     coordinator.connection.async_request.assert_any_call(
         OP_SET_POSITION, build_set_position_payload(100)
     )
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["set_upper_limit", "set_lower_limit", "clear_limits", "save_limits"],
+)
+async def test_limit_buttons_disabled_by_default(
+    hass: HomeAssistant, config_entry, key: str
+) -> None:
+    """Set/Clear/Save Limits are disabled by default - unlike jog/step,
+    these aren't easily reversible, so an accidental press could
+    miscalibrate the shade's travel range."""
+    registry = er.async_get(hass)
+    entry = registry.async_get(f"button.powershade_bedroom_shade_{key}")
+
+    assert entry is not None
+    assert entry.disabled
+
+
+@pytest.mark.parametrize("key", ["jog_up", "jog_down", "step_up", "step_down"])
+async def test_jog_step_buttons_enabled_by_default(
+    hass: HomeAssistant, config_entry, key: str
+) -> None:
+    """Jog/Step are enabled by default, unlike the limit buttons - they're
+    reversible (jog/step the other way undoes them)."""
+    registry = er.async_get(hass)
+    entry = registry.async_get(f"button.powershade_bedroom_shade_{key}")
+
+    assert entry is not None
+    assert not entry.disabled
 
 
 async def test_button_unique_ids(hass: HomeAssistant, config_entry) -> None:

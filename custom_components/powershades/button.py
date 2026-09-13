@@ -35,6 +35,7 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         key="toggle",
         translation_key="toggle",
         icon="mdi:swap-vertical",
+        entity_category=EntityCategory.CONFIG,
         press_fn=lambda coordinator: coordinator.async_toggle(),
     ),
     PowerShadesButtonDescription(
@@ -63,6 +64,7 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         translation_key="set_upper_limit",
         icon="mdi:arrow-up-bold-circle",
         entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=False,
         press_fn=lambda coordinator: coordinator.async_set_upper_limit(),
     ),
     PowerShadesButtonDescription(
@@ -70,6 +72,7 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         translation_key="set_lower_limit",
         icon="mdi:arrow-down-bold-circle",
         entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=False,
         press_fn=lambda coordinator: coordinator.async_set_lower_limit(),
     ),
     PowerShadesButtonDescription(
@@ -77,6 +80,7 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         translation_key="clear_limits",
         icon="mdi:eraser",
         entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=False,
         press_fn=lambda coordinator: coordinator.async_clear_limits(),
     ),
     PowerShadesButtonDescription(
@@ -105,6 +109,7 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         translation_key="save_limits",
         icon="mdi:content-save-cog",
         entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=False,
         press_fn=lambda coordinator: coordinator.async_save_limits(),
     ),
 )

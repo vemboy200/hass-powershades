@@ -14,8 +14,8 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state
 - **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
-- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), and an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs
-- **Binary Sensor Platform**: Motor Running and Charging diagnostic sensors
+- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, and an Error sensor decoding the shade's logged error codes
+- **Binary Sensor Platform**: Motor Awake and Charging diagnostic sensors
 - **Services**: `powershades.set_shade_name`, for renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
 - **Config Flow**: Easy setup through Home Assistant's UI, with automatic and DHCP discovery
@@ -83,10 +83,10 @@ Once configured, your PowerShades will appear as covers in Home Assistant. You c
 
 Each shade also gets buttons for:
 
-- **Toggle Shade**: Open/close based on current position, or stop if moving
+- **Toggle Shade**: Open/close based on current position, or stop if moving (under Configuration - the cover entity already covers this for everyday use)
 - **Identify**: Makes the shade motor wiggle so you can tell which physical shade this is (under Diagnostic)
 - **Reboot**: Restarts the shade's controller (under Diagnostic)
-- **Jog Up/Down, Set Upper/Lower Limit, Clear Limits, Step Up/Down, Save Limits**: Limit calibration tools (under the device's Configuration section). Typical workflow: jog near the desired position, step to fine-tune, set the limit, then save it so it persists to the device's flash storage.
+- **Jog Up/Down, Set Upper/Lower Limit, Clear Limits, Step Up/Down, Save Limits**: Limit calibration tools (under the device's Configuration section). Typical workflow: jog near the desired position, step to fine-tune, set the limit, then save it so it persists to the device's flash storage. Set Upper/Lower Limit, Clear Limits, and Save Limits are disabled by default - enable them from the device page when you actually need to recalibrate - since an accidental press (e.g. Clear Limits, or Set Upper/Lower Limit while the shade isn't at the right physical position) can miscalibrate the shade's travel range and isn't easily undone. Jog and Step stay enabled since they're reversible (jog/step the other way undoes them).
 
 ### Diagnostic Entities
 
@@ -94,7 +94,9 @@ Battery percentage and battery voltage are available as diagnostic sensor entiti
 
 An LED Color sensor (enabled by default) mirrors the shade's two physical status LEDs (green and red) as a single sensor with four states: `off`, `green`, `red`, and `yellow` (both LEDs on at once) — useful since these LEDs can turn on unpredictably and aren't otherwise visible unless you're standing in front of the shade.
 
-Two binary sensors (enabled by default) are also available: **Motor Running** (the motor controller isn't in its low-power sleep state) and **Charging** (PoE power is present and negotiated normally - in practice this reads on almost the entire time the shade is reachable at all, since a full PoE loss also cuts power to the whole device; it's mainly useful for catching a degraded or under-negotiated PoE link the shade is still limping along on).
+An Error sensor (enabled by default) decodes the shade's logged error codes (`PoEErrorCode` values like `Motor_Stall`, `TCP_Keep_Alive`, `Battery_Low_Power_Down`) into a named state, with `mdi:check-circle` when there's no error and `mdi:alert-circle` otherwise. The shade can log more than one error at once, but this sensor can only show one - it shows the most recent entry in the list. A code the integration doesn't recognize shows as `unknown` rather than failing.
+
+Two more diagnostic binary sensors are also available. **Motor Awake** (enabled by default) reflects a power-management state of the motor driver electronics - awake vs. low-power sleep after a period of inactivity - not whether the shade is actually moving; the shade can be fully idle and still "awake" simply from having been recently polled or commanded. Actual movement is what the cover's opening/closing state already tracks. **Charging** (disabled by default, like the battery/voltage sensors - enable it from the device page) reflects whether PoE is present and negotiated normally; in practice this reads on almost the entire time the shade is reachable at all, since a full PoE loss also cuts power to the whole device, so it's mainly useful for catching a degraded or under-negotiated PoE link the shade is still limping along on.
 
 ### Services
 
@@ -236,10 +238,15 @@ For issues and feature requests, please use the [GitHub Issues](https://github.c
 ### v1.0.0
 - **Breaking change**: Removed the `powershades.toggle_shade`, `powershades.jog_up`/`jog_down`, `powershades.step_up`/`step_down`, and `powershades.set_upper_limit`/`set_lower_limit`/`clear_limits` services. Each one duplicated an existing button entity (Toggle Shade, Jog Up/Down, Step Up/Down, Set Upper/Lower Limit, Clear Limits) that takes no parameters, so there was nothing a service added over pressing the button - update any automations calling these services to press the equivalent button (`button.press`) instead. `powershades.set_shade_name` is unaffected, since it needs a name parameter a button can't provide
 - **Breaking change**: Replaced the Green LED binary sensor with an LED Color sensor. The device actually has two status LEDs (green and red), and this makes both visible as one entity with four states (`off`/`green`/`red`/`yellow`, where yellow means both are lit) instead of only ever tracking the green one. Automations/dashboards referencing the old `binary_sensor.*_green_led` entity need to switch to the new `sensor.*_led_color` entity and its string states instead of on/off
-- Added Motor Running and Charging binary sensors (Diagnostic)
+- Added Motor Awake (enabled by default) and Charging (disabled by default) binary sensors (Diagnostic)
+- Set Upper Limit, Set Lower Limit, Clear Limits, and Save Limits are now disabled by default - unlike Jog/Step, they aren't easily reversible, so an accidental press could miscalibrate the shade's travel range. This only affects newly-added shades - existing entries keep whatever enabled/disabled state their buttons already had
 - Polling now uses a single Get Debug Info request per cycle instead of two separate requests - Get Debug Info already carries position and battery alongside motor_state and both LEDs, so Get Status is no longer actively polled. It's still used for the shade's own real-time push, since the shade only ever sends that op unsolicited
 - Status pushes no longer reset the poll timer, so motor_state and the LED color sensor refresh on their normal schedule regardless of how often the shade pushes
 - Declared the `pyowershades` package as a debug-logging source in the manifest, so enabling debug logging on the integration now also captures the library's own per-packet logs, not just the coordinator's
+- The LED Color sensor now shows `mdi:led-outline` when off and `mdi:led-on` when lit, instead of a generic icon
+- The diagnostics download now decodes the shade's error log (`PoEErrorCode` values) into readable names alongside the raw numbers, e.g. `TCP_Keep_Alive`, `Enter_Sleep_Mode`. Bumps the `pyowershades` dependency to 0.3.0, which added the decoder (`parse_error_list`, `POE_ERROR_CODES`) after reading how the official Config.NET app itself decodes this field
+- Added an Error sensor (Diagnostic, enabled by default) showing the shade's most recently logged error code by name, with a `mdi:check-circle`/`mdi:alert-circle` icon. The device can log more than one error at a time, but this sensor can only show one
+- Moved the Toggle Shade button to Configuration - it's not needed for everyday use since the cover entity already covers opening/closing/stopping. Like the entity-disabled-by-default changes above, this only affects newly-added shades; an existing Toggle Shade button keeps showing in the main entity list unless you change its category manually
 
 ### v0.9.0
 - Added Reboot and Save Limits buttons (Configuration)
