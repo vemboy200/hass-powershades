@@ -88,6 +88,19 @@
         }
     },
     "entity": {
+        "cover": {
+            "cover": {
+                "state_attributes": {
+                    "speed": {
+                        "state": {
+                            "slow": "Slow",
+                            "medium": "Medium",
+                            "fast": "Fast"
+                        }
+                    }
+                }
+            }
+        },
         "button": {
             "toggle": {
                 "name": "Toggle Shade"
@@ -196,16 +209,6 @@
         "number": {
             "motor_speed": {
                 "name": "Speed"
-            }
-        },
-        "select": {
-            "speed_preset": {
-                "name": "Speed Preset",
-                "state": {
-                    "slow": "Slow",
-                    "medium": "Medium",
-                    "fast": "Fast"
-                }
             }
         }
     }

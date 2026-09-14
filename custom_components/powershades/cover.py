@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components.cover import (
     ATTR_POSITION,
+    ATTR_SPEED,
     CoverDeviceClass,
     CoverEntity,
     CoverEntityFeature,
@@ -20,6 +21,15 @@ from .entity import PowerShadesEntity
 _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
+
+# Spread across the confirmed valid range (40-100) - the vendor app's own
+# floor and ceiling, not arbitrary round numbers. Gen 1 only, same
+# restriction as the Speed number entity.
+SPEED_PRESETS = {
+    "slow": 40,
+    "medium": 70,
+    "fast": 100,
+}
 
 
 async def async_setup_entry(
@@ -35,17 +45,36 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
     """PowerShades cover entity."""
 
     _attr_name = None
+    _attr_translation_key = "cover"
     _attr_device_class = CoverDeviceClass.SHADE
-    _attr_supported_features = (
-        CoverEntityFeature.OPEN
-        | CoverEntityFeature.CLOSE
-        | CoverEntityFeature.STOP
-        | CoverEntityFeature.SET_POSITION
-    )
 
     def __init__(self, coordinator: PowerShadesCoordinator) -> None:
         """Initialize the PowerShades cover."""
         super().__init__(coordinator, "cover")
+
+    @property
+    def supported_features(self) -> CoverEntityFeature:
+        """Return the supported features, adding Speed only on Gen 1."""
+        features = (
+            CoverEntityFeature.OPEN
+            | CoverEntityFeature.CLOSE
+            | CoverEntityFeature.STOP
+            | CoverEntityFeature.SET_POSITION
+        )
+        if self.supported_speeds:
+            features |= CoverEntityFeature.SPEED
+        return features
+
+    @property
+    def supported_speeds(self) -> list[str] | None:
+        """Return the slow/medium/fast speed presets, Gen 1 only.
+
+        Setting motor speed on Gen 2 is unverified against real hardware
+        (see the Speed number entity), so Speed isn't advertised there.
+        """
+        if self.coordinator.hw_version != "Gen 1":
+            return None
+        return list(SPEED_PRESETS)
 
     @property
     def current_cover_position(self) -> int | None:
@@ -77,12 +106,25 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
         motor_state = self.coordinator.data.motor_state
         return motor_state is not None and motor_state >= 10
 
+    async def _async_apply_speed(self, kwargs: dict[str, Any]) -> None:
+        """Set the shade's motor speed first, if a speed preset was given.
+
+        The base CoverEntity already validates the speed against
+        supported_speeds before calling us, so it's guaranteed to be a
+        valid SPEED_PRESETS key here.
+        """
+        speed = kwargs.get(ATTR_SPEED)
+        if speed is not None:
+            await self.coordinator.async_set_motor_speed(SPEED_PRESETS[speed])
+
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
+        await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(100)
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
+        await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(0)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
@@ -91,4 +133,5 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
+        await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(kwargs[ATTR_POSITION])

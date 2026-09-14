@@ -12,12 +12,11 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 ## Features
 
-- **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state
+- **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state, plus a Slow/Medium/Fast `speed` option on open/close/set position (Gen 1 only)
 - **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
 - **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, an Error sensor decoding the shade's logged error codes, and Current RPM/Motor Power sensors (disabled by default) for live motor telemetry while moving
 - **Binary Sensor Platform**: Motor Awake and Charging diagnostic sensors
-- **Number Platform**: A settable Speed (0-100%, enabled by default), for the shade's motor speed
-- **Select Platform**: A Speed Preset (Slow/Medium/Fast, enabled by default), for quick automation-friendly speed changes
+- **Number Platform**: A settable Speed (40-100%, enabled by default), for the shade's motor speed
 - **Switch Platform**: Allow Cloud Connection (disabled by default), controlling whether the shade may connect to PowerShades' own cloud dashboard
 - **Services**: `powershades.set_shade_name`, for renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
@@ -103,13 +102,13 @@ Two more diagnostic binary sensors are also available. **Motor Awake** (enabled 
 
 **Current RPM** and **Motor Power** (disabled by default — enable from the device page) show live motor telemetry: the measured motor speed and its power level as a percentage. Both read 0 while the shade is idle.
 
-### Number and Select
+### Speed control
 
-**Speed** (0-100%, enabled by default) sets the shade's motor speed - the same "Speed (%)" field in the official PowerShades app. Unlike everything else in this integration, writing it requires unlocking a privileged command on the device first (Admin Access, a fixed factory key sent immediately before the actual command). The valid range is 40-100 - the official app itself refuses anything lower, so values below 40 are rejected before anything is sent. This is currently only implemented for **Gen 1** hardware: Gen 1 and Gen 2 firmware handle this write completely differently (confirmed from the official app's own code), and Gen 2's behavior hasn't been verified, so attempting this on a non-Gen-1 device raises an error instead of guessing. Unlike the disabled-by-default entities above, this one is enabled out of the box and left uncategorized (shown under Controls, not Configuration) - it's meant for active use, e.g. a slower speed for quiet nighttime automations and a faster one for manual operation.
+**Speed** (40-100%, enabled by default, Number platform) sets the shade's motor speed - the same "Speed (%)" field in the official PowerShades app. Unlike everything else in this integration, writing it requires unlocking a privileged command on the device first (Admin Access, a fixed factory key sent immediately before the actual command). The valid range is 40-100 - the official app itself refuses anything lower, so values below 40 are rejected before anything is sent. This is currently only implemented for **Gen 1** hardware: Gen 1 and Gen 2 firmware handle this write completely differently (confirmed from the official app's own code), and Gen 2's behavior hasn't been verified, so attempting this on a non-Gen-1 device raises an error instead of guessing. Unlike the disabled-by-default entities above, this one is enabled out of the box and left uncategorized (shown under Controls, not Configuration) - it's meant for active use, e.g. a slower speed for quiet nighttime automations and a faster one for manual operation.
 
-**Speed Preset** is a Slow/Medium/Fast shortcut over the Speed number (40%/70%/100%), for quick use in automations without picking an exact number. It shows as unknown if the current speed doesn't exactly match one of the three presets (e.g. after setting a custom value via the Speed number entity directly).
+The cover entity also supports a Slow/Medium/Fast `speed` option (40%/70%/100%) on `cover.open_cover`, `cover.close_cover`, and `cover.set_cover_position`, using Home Assistant's built-in [cover speed feature](https://github.com/home-assistant/architecture/discussions/789) - the shade's speed is set to match right before the move. This only appears on **Gen 1** hardware, for the same reason as the Speed number above, and requires **Home Assistant 2026.10 or later** (`hacs.json` declares this minimum version for HACS installs; there's no equivalent check for a manual install on an older core - the entity would just fail to reference `CoverEntityFeature.SPEED` on setup in that case).
 
-Setting a value through either entity hasn't been verified against real hardware yet - the Gen 1 payload is built entirely from the decompiled vendor app, not a real capture of an actual speed change.
+Setting a speed hasn't been verified against real hardware yet - the Gen 1 payload is built entirely from the decompiled vendor app, not a real capture of an actual speed change.
 
 ### Switches
 

@@ -88,6 +88,19 @@
         }
     },
     "entity": {
+        "cover": {
+            "cover": {
+                "state_attributes": {
+                    "speed": {
+                        "state": {
+                            "slow": "Lente",
+                            "medium": "Moyenne",
+                            "fast": "Rapide"
+                        }
+                    }
+                }
+            }
+        },
         "button": {
             "toggle": {
                 "name": "Basculer le store"
@@ -196,16 +209,6 @@
         "number": {
             "motor_speed": {
                 "name": "Vitesse"
-            }
-        },
-        "select": {
-            "speed_preset": {
-                "name": "Préréglage de vitesse",
-                "state": {
-                    "slow": "Lente",
-                    "medium": "Moyenne",
-                    "fast": "Rapide"
-                }
             }
         }
     }

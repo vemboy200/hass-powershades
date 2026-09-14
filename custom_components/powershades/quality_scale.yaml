@@ -72,8 +72,8 @@ rules:
     DataUpdateCoordinator logs a warning when polling starts failing and when it recovers
   parallel-updates: done
   comment: |
-    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py, binary_sensor.py, switch.py,
-    number.py and select.py
+    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py, binary_sensor.py, switch.py
+    and number.py
   reauthentication-flow: exempt
   comment: |
     the device has no concept of authentication, nothing to re-authenticate
@@ -81,8 +81,8 @@ rules:
   comment: |
     tests cover the config flow, coordinator (polling, push updates, real motor state
     refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
-    speed set), protocol parsing/building, and the cover, button, sensor,
-    binary_sensor, switch, number and select platforms
+    speed set), protocol parsing/building, and the cover (including the Gen 1
+    speed presets), button, sensor, binary_sensor, switch and number platforms
 
   # Gold
   devices: done
@@ -123,9 +123,11 @@ rules:
     diagnostic sensors (battery, voltage, LED color, error, current RPM, motor power)
     and binary sensors (motor awake, charging), diagnostic buttons (identify, reboot),
     config buttons (toggle, jog/limit tools), and the config switch (allow cloud
-    connection) use entity_category appropriately. The Speed number and Speed Preset
-    select are deliberately uncategorized (Control) rather than Configuration - they're
-    meant for active, day-to-day use (e.g. automations), not rarely-touched settings
+    connection) use entity_category appropriately. The Speed number entity is
+    deliberately uncategorized (Control) rather than Configuration - it's meant for
+    active, day-to-day use (e.g. automations), not a rarely-touched setting. The
+    cover's Slow/Medium/Fast speed option (CoverEntityFeature.SPEED, Gen 1 only)
+    isn't a separate entity, so entity_category doesn't apply to it
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
@@ -143,17 +145,18 @@ rules:
     switch is also disabled by default - most users have no reason to touch it, and it's
     not yet verified against real hardware (docs/KNOWN_BEHAVIORS.md in pyowershades),
     matching the precedent of Home Connect Local's analogous AllowBackendConnection switch.
-    The Speed number and Speed Preset select are deliberately enabled by default instead -
-    they're meant for active use (e.g. slower for nighttime automations, faster for manual
-    use), not a rarely-touched setting, even though setting them is admin-gated and
-    unverified against real hardware
+    The Speed number entity is deliberately enabled by default instead - it's meant for
+    active use (e.g. slower for nighttime automations, faster for manual use), not a
+    rarely-touched setting, even though setting it is admin-gated and unverified
+    against real hardware
   entity-translations: done
   comment: |
-    button, sensor, binary_sensor, switch, number and select entities use translation_key
-    with names (and, for the enum LED color/error sensors and the Speed Preset select,
-    per-state names) defined under
-    entity.button/entity.sensor/entity.binary_sensor/entity.switch/entity.number/entity.select
-    in strings.json/translations
+    button, sensor, binary_sensor, switch and number entities use translation_key with
+    names (and, for the enum LED color/error sensors, per-state names) defined under
+    entity.button/entity.sensor/entity.binary_sensor/entity.switch/entity.number in
+    strings.json/translations. The cover entity also uses translation_key ("cover") to
+    provide per-state names for its Slow/Medium/Fast speed capability attribute, under
+    entity.cover.cover.state_attributes.speed.state
   exception-translations: done
   comment: |
     HomeAssistantError/ServiceValidationError raised from services.py and
