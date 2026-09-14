@@ -31,6 +31,8 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.COVER,
+    Platform.NUMBER,
+    Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
 ]
@@ -163,6 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     await _async_backfill_model(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
     await coordinator.async_fetch_disables_state()
+    await coordinator.async_fetch_motor_speed()
     _async_check_rf_gateway(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

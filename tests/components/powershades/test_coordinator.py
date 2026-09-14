@@ -1,13 +1,16 @@
 """Tests for the PowerShades data update coordinator."""
 
+import struct
 from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from pyowershades import (
+    ADMIN_ACCESS_PAYLOAD,
     DISABLE_TCP_CLOUD,
     LIMIT_LOWER,
     LIMIT_UPPER,
+    OP_ADMIN_ACCESS,
     OP_CLEAR_LIMITS,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
@@ -16,6 +19,7 @@ from pyowershades import (
     OP_JOG_DOWN,
     OP_JOG_STOP,
     OP_JOG_UP,
+    OP_POE_MOTOR_PARAMS,
     OP_REBOOT,
     OP_SAVE_LIMITS,
     OP_SET_LIMIT,
@@ -40,6 +44,7 @@ from .conftest import (
     TEST_SERIAL,
     debug_info_packet,
     disables_packet,
+    motor_params_packet,
     status_packet,
 )
 
@@ -333,3 +338,79 @@ async def test_async_set_allow_cloud_connection_failure_raises(coordinator) -> N
     assert exc_info.value.translation_placeholders == {
         "ip_address": coordinator.ip_address
     }
+
+
+async def test_async_fetch_motor_speed(coordinator) -> None:
+    """Fetching motor speed reads MotorPowerUP from the device."""
+    await coordinator.async_fetch_motor_speed()
+
+    assert coordinator.motor_speed_percent == 100
+
+
+async def test_async_set_motor_speed_sends_admin_access_then_set(
+    coordinator,
+) -> None:
+    """Setting a speed sends Admin Access immediately before the Set,
+    as an atomic pair, using the exact Gen 1 fixed template."""
+    coordinator.hw_version = "Gen 1"
+    calls: list[tuple[int, bytes]] = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append((op, payload))
+        if op == OP_POE_MOTOR_PARAMS:
+            return motor_params_packet(motor_power_up=70)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_set_motor_speed(70)
+
+    # Admin Access immediately before the Set, in that order.
+    ops = [op for op, _ in calls]
+    assert ops == [OP_ADMIN_ACCESS, OP_POE_MOTOR_PARAMS]
+
+    admin_call = calls[0]
+    assert admin_call[1] == ADMIN_ACCESS_PAYLOAD
+
+    # The outgoing Set payload is a different (longer) shape than a
+    # reply - it has a leading ParamType byte the reply doesn't - so
+    # unpack it directly rather than through parse_motor_parameters_reply.
+    set_call = calls[1]
+    fields = struct.unpack("<4BhhIIHHhhIIHHhhBBHH", set_call[1])
+    assert fields[0] == 1  # ParamType: Set
+    assert fields[1] == 0  # SpeedControlEnable: off
+    assert fields[10] == 70  # MotorPowerUP
+    assert fields[16] == 70  # MotorPowerDOWN
+
+    assert coordinator.motor_speed_percent == 70
+    assert coordinator.motor_speed_percent == 70
+
+
+async def test_async_set_motor_speed_rejects_non_gen1(coordinator) -> None:
+    """Refuses to guess at Gen 2's different (unverified) behavior."""
+    coordinator.hw_version = "Gen 2"
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_motor_speed(70)
+
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "motor_speed_gen1_only"
+    assert exc_info.value.translation_placeholders == {
+        "ip_address": coordinator.ip_address,
+        "hw_version": "Gen 2",
+    }
+
+
+async def test_async_set_motor_speed_failure_raises(coordinator) -> None:
+    """If the Set fails, the failure is raised with the right key."""
+    coordinator.hw_version = "Gen 1"
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_motor_speed(70)
+
+    assert exc_info.value.translation_key == "motor_speed_not_confirmed"

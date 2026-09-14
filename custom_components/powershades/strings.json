@@ -72,6 +72,12 @@
         },
         "cloud_connection_not_confirmed": {
             "message": "Shade at {ip_address} did not confirm its cloud connectivity setting."
+        },
+        "motor_speed_not_confirmed": {
+            "message": "Shade at {ip_address} did not confirm its motor speed setting."
+        },
+        "motor_speed_gen1_only": {
+            "message": "Setting motor speed is only supported on Gen 1 devices - {ip_address} reports {hw_version}."
         }
     },
     "selector": {
@@ -170,9 +176,6 @@
             "current_rpm": {
                 "name": "Current RPM"
             },
-            "desired_rpm": {
-                "name": "Desired RPM"
-            },
             "motor_power": {
                 "name": "Motor Power"
             }
@@ -188,6 +191,21 @@
         "switch": {
             "allow_cloud_connection": {
                 "name": "Allow Cloud Connection"
+            }
+        },
+        "number": {
+            "motor_speed": {
+                "name": "Speed"
+            }
+        },
+        "select": {
+            "speed_preset": {
+                "name": "Speed Preset",
+                "state": {
+                    "slow": "Slow",
+                    "medium": "Medium",
+                    "fast": "Fast"
+                }
             }
         }
     }

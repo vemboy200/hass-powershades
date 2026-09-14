@@ -72,6 +72,12 @@
         },
         "cloud_connection_not_confirmed": {
             "message": "Le store à {ip_address} n'a pas confirmé son paramètre de connexion au cloud."
+        },
+        "motor_speed_not_confirmed": {
+            "message": "Le store à {ip_address} n'a pas confirmé son réglage de vitesse du moteur."
+        },
+        "motor_speed_gen1_only": {
+            "message": "Le réglage de la vitesse du moteur n'est pris en charge que sur les appareils Gen 1 - {ip_address} indique {hw_version}."
         }
     },
     "selector": {
@@ -170,9 +176,6 @@
             "current_rpm": {
                 "name": "RPM actuel"
             },
-            "desired_rpm": {
-                "name": "RPM souhaité"
-            },
             "motor_power": {
                 "name": "Puissance du moteur"
             }
@@ -188,6 +191,21 @@
         "switch": {
             "allow_cloud_connection": {
                 "name": "Autoriser la connexion au cloud"
+            }
+        },
+        "number": {
+            "motor_speed": {
+                "name": "Vitesse"
+            }
+        },
+        "select": {
+            "speed_preset": {
+                "name": "Préréglage de vitesse",
+                "state": {
+                    "slow": "Lente",
+                    "medium": "Moyenne",
+                    "fast": "Rapide"
+                }
             }
         }
     }

@@ -14,7 +14,6 @@ LED_COLOR_ENTITY_ID = "sensor.powershade_bedroom_shade_led_color"
 ERROR_ENTITY_ID = "sensor.powershade_bedroom_shade_error"
 RPM_POWER_ENTITY_IDS = (
     "sensor.powershade_bedroom_shade_current_rpm",
-    "sensor.powershade_bedroom_shade_desired_rpm",
     "sensor.powershade_bedroom_shade_motor_power",
 )
 
@@ -151,8 +150,8 @@ async def test_error_unknown_code(hass: HomeAssistant, config_entry) -> None:
 async def test_rpm_and_power_disabled_by_default(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Current RPM, Desired RPM, and Motor Power are disabled by
-    default, like battery/voltage."""
+    """Current RPM and Motor Power are disabled by default, like
+    battery/voltage."""
     registry = er.async_get(hass)
 
     for entity_id in RPM_POWER_ENTITY_IDS:
@@ -164,8 +163,8 @@ async def test_rpm_and_power_disabled_by_default(
 async def test_rpm_and_power_values_when_enabled(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Once enabled, the sensors report velocity, desired RPM, and
-    motor duty cycle from Debug Info."""
+    """Once enabled, the sensors report velocity and motor duty cycle
+    from Debug Info."""
     registry = er.async_get(hass)
     for entity_id in RPM_POWER_ENTITY_IDS:
         registry.async_update_entity(entity_id, disabled_by=None)
@@ -186,12 +185,10 @@ async def test_rpm_and_power_values_when_enabled(
     await coordinator.async_request_refresh()
     await hass.async_block_till_done()
 
-    current_rpm, desired_rpm, motor_power = (
+    current_rpm, motor_power = (
         hass.states.get(entity_id) for entity_id in RPM_POWER_ENTITY_IDS
     )
     assert current_rpm.state == "42"
     assert current_rpm.attributes["icon"] == "mdi:speedometer"
-    assert desired_rpm.state == "60"
-    assert desired_rpm.attributes["icon"] == "mdi:target"
     assert motor_power.state == "75"
     assert motor_power.attributes["icon"] == "mdi:engine"

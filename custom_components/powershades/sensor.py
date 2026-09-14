@@ -134,18 +134,6 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         value_fn=lambda data: data.velocity_rpm,
     ),
     PowerShadesSensorDescription(
-        key="desired_rpm",
-        translation_key="desired_rpm",
-        # Distinct from Current RPM's speedometer - this is the setpoint
-        # being aimed for, not a measured value.
-        icon="mdi:target",
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-        value_fn=lambda data: data.desired_rpm,
-    ),
-    PowerShadesSensorDescription(
         key="motor_power",
         translation_key="motor_power",
         icon="mdi:engine",

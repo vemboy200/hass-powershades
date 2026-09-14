@@ -11,6 +11,7 @@ from pyowershades import (
     OP_GET_DEVICE_ID,
     OP_GET_SHADE_NAME,
     OP_GET_STATUS,
+    OP_POE_MOTOR_PARAMS,
     PowerShadesConnection,
     build_packet,
 )
@@ -165,6 +166,49 @@ def disables_packet(
     return build_packet(OP_DISABLES, payload=bytes([byte]))
 
 
+def motor_params_packet(
+    *,
+    speed_control_enable: int = 0,
+    desired_rpm_up: int = 75,
+    desired_rpm_down: int = 75,
+    jog_dot_power: int = 100,
+    motor_power_up: int = 100,
+    soft_stop_delay: int = 3,
+) -> bytes:
+    """Build a Get/Set PoE Motor Parameters reply packet.
+
+    Matches the real reply shape confirmed from two independent live
+    captures: a 1-byte leading flag (0 on a real Get reply) followed by
+    the 19-field struct, with no trailing SoftStopDecelCounts/
+    SoftStopDecelTime (the vendor's own receive code reads those as
+    stale buffer memory on a real device, not real data - see
+    pyowershades' MotorParametersReply docstring).
+    """
+    payload = b"\x00" + struct.pack(
+        "<3BhhIIHHhhIIHHhhBB",
+        speed_control_enable,
+        99,  # SlowDownTargetInput
+        2,  # ComputerMotorPowerTolerence
+        100,  # JogDotPowerDecel
+        jog_dot_power,
+        desired_rpm_up,
+        45,  # DesiredRpmUpDECEL
+        25,  # ComputerMotorPowerTimeUP
+        15,  # ComputerMotorPowerTimeUpDECEL
+        motor_power_up,
+        100,  # MotorPowerUpDECEL
+        desired_rpm_down,
+        45,  # DesiredRpmDownDECEL
+        25,  # ComputerMotorPowerTimeDOWN
+        15,  # ComputerMotorPowerTimeDownDECEL
+        100,  # MotorPowerDOWN
+        100,  # MotorPowerDownDECEL
+        soft_stop_delay,
+        0,  # SoftStopEnable
+    )
+    return build_packet(OP_POE_MOTOR_PARAMS, payload=payload)
+
+
 @pytest.fixture
 def mock_connection():
     """Mock the UDP connection so setup never touches real sockets."""
@@ -180,6 +224,8 @@ def mock_connection():
             return device_id_packet()
         if op == OP_DISABLES:
             return disables_packet()
+        if op == OP_POE_MOTOR_PARAMS:
+            return motor_params_packet()
         return build_packet(op)
 
     with (

@@ -17,10 +17,12 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 from pyowershades import (
+    ADMIN_ACCESS_PAYLOAD,
     GET_SHADE_NAME_PAYLOAD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     MODEL_NAMES,
+    OP_ADMIN_ACCESS,
     OP_CLEAR_LIMITS,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
@@ -29,6 +31,7 @@ from pyowershades import (
     OP_JOG_DOWN,
     OP_JOG_STOP,
     OP_JOG_UP,
+    OP_POE_MOTOR_PARAMS,
     OP_REBOOT,
     OP_SAVE_LIMITS,
     OP_SET_LIMIT,
@@ -41,10 +44,12 @@ from pyowershades import (
     battery_percentage,
     build_set_disables_payload,
     build_set_limit_payload,
+    build_set_motor_speed_payload_gen1,
     build_set_name_payload,
     build_set_position_payload,
     parse_debug_info_reply,
     parse_disables_reply,
+    parse_motor_parameters_reply,
     parse_shade_name_reply,
 )
 
@@ -69,7 +74,6 @@ class PowerShadesData:
     motor_state: int | None = None
     error_list: list[int] = field(default_factory=list)
     velocity_rpm: int | None = None
-    desired_rpm: int | None = None
     motor_duty_cycle: int | None = None
 
 
@@ -99,6 +103,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         # integration writes a change, not on every regular poll.
         self.allow_cloud_connection: bool | None = None
         self._disables_raw: int | None = None
+        # PoE Motor Parameters (op 0x27) - also configuration, fetched
+        # once at setup and again after a write, not on every poll.
+        self.motor_speed_percent: int | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -151,9 +158,9 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
     def _data_from_status(self, status: StatusReply) -> PowerShadesData:
         # Status pushes only carry position/battery - the Get Debug Info
         # fields (io_green_led, io_red_led, io_motor_sleep, io_poe_status,
-        # motor_state, error_list, velocity_rpm, desired_rpm,
-        # motor_duty_cycle) are only refreshed by our own poll cycle, so
-        # carry the last known values forward here.
+        # motor_state, error_list, velocity_rpm, motor_duty_cycle) are
+        # only refreshed by our own poll cycle, so carry the last known
+        # values forward here.
         return PowerShadesData(
             position=status.position,
             battery_mv=status.battery_mv,
@@ -165,7 +172,6 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             motor_state=self.data.motor_state if self.data is not None else None,
             error_list=self.data.error_list if self.data is not None else [],
             velocity_rpm=self.data.velocity_rpm if self.data is not None else None,
-            desired_rpm=self.data.desired_rpm if self.data is not None else None,
             motor_duty_cycle=(
                 self.data.motor_duty_cycle if self.data is not None else None
             ),
@@ -228,7 +234,6 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             motor_state=debug_info.motor_state,
             error_list=debug_info.error_list,
             velocity_rpm=debug_info.velocity_rpm,
-            desired_rpm=debug_info.desired_rpm,
             motor_duty_cycle=debug_info.motor_duty_cycle,
         )
         # Poll faster while the position is unknown
@@ -322,6 +327,69 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
     async def async_step_down(self) -> None:
         """Move the motor down one step (for trimming limits)."""
         await self._async_command(OP_STEP_DOWN)
+
+    async def async_fetch_motor_speed(self) -> None:
+        """Fetch the shade's currently configured motor speed (0x27).
+
+        Reads are not admin-gated, unlike writes. Best-effort: leaves
+        motor_speed_percent unset on failure or a malformed reply.
+        """
+        try:
+            reply = await self.connection.async_request(OP_POE_MOTOR_PARAMS)
+        except PowerShadesTimeoutError:
+            return
+        result = parse_motor_parameters_reply(reply)
+        if result is None:
+            return
+        self.motor_speed_percent = result.motor_power_up
+        self.async_update_listeners()
+
+    async def async_set_motor_speed(self, percent: int) -> None:
+        """Set the shade's motor speed - the "Speed (%)" field in the
+        vendor's own app (MotorPowerUP/DOWN, not DesiredRpmUP/DOWN).
+
+        Gen 1 only: Gen 1 and Gen 2 firmware handle this write
+        completely differently (confirmed from the vendor app's own
+        model-version branch) and Gen 2's behavior hasn't been verified,
+        so this refuses on anything other than a confirmed Gen 1 device
+        rather than guess.
+
+        Admin-gated: Admin Access (op 0x3C, a fixed factory key) must be
+        sent immediately before the Set, every time - confirmed from the
+        vendor app never caching an unlock. No read-before-write is
+        needed here (unlike Feature Disables): Gen 1 firmware discards
+        whatever was previously configured for every field except
+        MotorPowerUP/DOWN, so there's nothing to preserve.
+        """
+        if self.hw_version != "Gen 1":
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="motor_speed_gen1_only",
+                translation_placeholders={
+                    "ip_address": self.ip_address,
+                    "hw_version": self.hw_version or "unknown",
+                },
+            )
+        payload = build_set_motor_speed_payload_gen1(percent)
+        try:
+            await self.connection.async_request(OP_ADMIN_ACCESS, ADMIN_ACCESS_PAYLOAD)
+            reply = await self.connection.async_request(OP_POE_MOTOR_PARAMS, payload)
+        except PowerShadesTimeoutError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="motor_speed_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            ) from err
+        result = parse_motor_parameters_reply(reply)
+        if result is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="motor_speed_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            )
+        self.motor_speed_percent = result.motor_power_up
+        self.async_update_listeners()
+        _LOGGER.info("Set motor speed=%s%% for %s", percent, self.ip_address)
 
     async def async_fetch_disables_state(self) -> None:
         """Fetch the current Feature Disables byte.

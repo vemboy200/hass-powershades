@@ -72,15 +72,17 @@ rules:
     DataUpdateCoordinator logs a warning when polling starts failing and when it recovers
   parallel-updates: done
   comment: |
-    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py, binary_sensor.py and switch.py
+    PARALLEL_UPDATES = 0 is set in cover.py, button.py, sensor.py, binary_sensor.py, switch.py,
+    number.py and select.py
   reauthentication-flow: exempt
   comment: |
     the device has no concept of authentication, nothing to re-authenticate
   test-coverage: done
   comment: |
     tests cover the config flow, coordinator (polling, push updates, real motor state
-    refresh, services, Feature Disables read-modify-write), protocol parsing/building,
-    and the cover, button, sensor, binary_sensor and switch platforms
+    refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
+    speed set), protocol parsing/building, and the cover, button, sensor,
+    binary_sensor, switch, number and select platforms
 
   # Gold
   devices: done
@@ -118,10 +120,12 @@ rules:
     one device per config entry
   entity-category: done
   comment: |
-    diagnostic sensors (battery, voltage, LED color, error, current/desired RPM, motor
-    power) and binary sensors (motor awake, charging), diagnostic buttons (identify,
-    reboot), config buttons (toggle, jog/limit tools), and the config switch (allow
-    cloud connection) use entity_category appropriately
+    diagnostic sensors (battery, voltage, LED color, error, current RPM, motor power)
+    and binary sensors (motor awake, charging), diagnostic buttons (identify, reboot),
+    config buttons (toggle, jog/limit tools), and the config switch (allow cloud
+    connection) use entity_category appropriately. The Speed number and Speed Preset
+    select are deliberately uncategorized (Control) rather than Configuration - they're
+    meant for active, day-to-day use (e.g. automations), not rarely-touched settings
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
@@ -131,19 +135,25 @@ rules:
     CoverDeviceClass.SHADE, and the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
-    battery, voltage, charging, current RPM, desired RPM and motor power sensors, and the
+    battery, voltage, charging, current RPM and motor power sensors, and the
     non-reversible limit buttons (set upper/lower limit, clear limits, save limits), are
     entity_registry_enabled_default=False - the latter since an accidental press could
     miscalibrate the shade's travel range. Jog/Step
     stay enabled since jogging/stepping the other way undoes them. The allow-cloud-connection
     switch is also disabled by default - most users have no reason to touch it, and it's
     not yet verified against real hardware (docs/KNOWN_BEHAVIORS.md in pyowershades),
-    matching the precedent of Home Connect Local's analogous AllowBackendConnection switch
+    matching the precedent of Home Connect Local's analogous AllowBackendConnection switch.
+    The Speed number and Speed Preset select are deliberately enabled by default instead -
+    they're meant for active use (e.g. slower for nighttime automations, faster for manual
+    use), not a rarely-touched setting, even though setting them is admin-gated and
+    unverified against real hardware
   entity-translations: done
   comment: |
-    button, sensor, binary_sensor and switch entities use translation_key with names (and,
-    for the enum LED color and error sensors, per-state names) defined under
-    entity.button/entity.sensor/entity.binary_sensor/entity.switch in strings.json/translations
+    button, sensor, binary_sensor, switch, number and select entities use translation_key
+    with names (and, for the enum LED color/error sensors and the Speed Preset select,
+    per-state names) defined under
+    entity.button/entity.sensor/entity.binary_sensor/entity.switch/entity.number/entity.select
+    in strings.json/translations
   exception-translations: done
   comment: |
     HomeAssistantError/ServiceValidationError raised from services.py and
