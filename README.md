@@ -14,7 +14,7 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state, plus a Slow/Medium/Fast `speed` option on open/close/set position (Gen 1 only)
 - **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
-- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, an Error sensor decoding the shade's logged error codes, and Current RPM/Motor Power sensors (disabled by default) for live motor telemetry while moving
+- **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, an Error sensor decoding the shade's logged error codes, Current RPM/Motor Power sensors (disabled by default) for live motor telemetry while moving, and a Desired RPM sensor (disabled by default, Gen 2 only)
 - **Binary Sensor Platform**: Motor Awake and Charging diagnostic sensors
 - **Number Platform**: A settable Speed (40-100%, enabled by default), for the shade's motor speed
 - **Switch Platform**: Allow Cloud Connection (disabled by default), controlling whether the shade may connect to PowerShades' own cloud dashboard
@@ -101,6 +101,8 @@ An Error sensor (enabled by default) decodes the shade's logged error codes (`Po
 Two more diagnostic binary sensors are also available. **Motor Awake** (enabled by default) reflects a power-management state of the motor driver electronics - awake vs. low-power sleep after a period of inactivity - not whether the shade is actually moving; the shade can be fully idle and still "awake" simply from having been recently polled or commanded. Actual movement is what the cover's opening/closing state already tracks. **Charging** (disabled by default, like the battery/voltage sensors - enable it from the device page) reflects whether PoE is present and negotiated normally; in practice this reads on almost the entire time the shade is reachable at all, since a full PoE loss also cuts power to the whole device, so it's mainly useful for catching a degraded or under-negotiated PoE link the shade is still limping along on.
 
 **Current RPM** and **Motor Power** (disabled by default — enable from the device page) show live motor telemetry: the measured motor speed and its power level as a percentage. Both read 0 while the shade is idle.
+
+**Desired RPM** (disabled by default, **Gen 2 only** — not created at all on Gen 1) would show the firmware's RPM-based speed-control target. It isn't offered on Gen 1 because Gen 1's Set template forces `SpeedControlEnable` off (see the Speed number entity below), so that control loop never runs there and the field reads a constant 0 regardless of actual motion - confirmed on real Gen 1 hardware, not just a guess. Whether it reports anything meaningful on Gen 2 is unverified - there's no Gen 2 unit to test against yet.
 
 ### Speed control
 

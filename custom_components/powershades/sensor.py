@@ -143,7 +143,24 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda data: data.motor_duty_cycle,
     ),
+    PowerShadesSensorDescription(
+        key="desired_rpm",
+        translation_key="desired_rpm",
+        icon="mdi:speedometer",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.desired_rpm,
+    ),
 )
+
+# Gen 1's Set template forces SpeedControlEnable off (see
+# build_set_motor_speed_payload_gen1 in pyowershades), so its RPM-based
+# speed-control loop never runs - Desired RPM reads a constant 0 there
+# regardless of actual motion, confirmed on real Gen 1 hardware. Only
+# show it where that might not hold.
+_GEN_2_ONLY_SENSOR_KEYS = frozenset({"desired_rpm"})
 
 
 async def async_setup_entry(
@@ -154,7 +171,10 @@ async def async_setup_entry(
     """Set up PowerShades sensors from a config entry."""
     coordinator = entry.runtime_data
     async_add_entities(
-        PowerShadesSensor(coordinator, description) for description in SENSORS
+        PowerShadesSensor(coordinator, description)
+        for description in SENSORS
+        if description.key not in _GEN_2_ONLY_SENSOR_KEYS
+        or coordinator.hw_version == "Gen 2"
     )
 
 

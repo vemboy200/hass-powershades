@@ -82,7 +82,8 @@ rules:
     tests cover the config flow, coordinator (polling, push updates, real motor state
     refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
     speed set), protocol parsing/building, and the cover (including the Gen 1
-    speed presets), button, sensor, binary_sensor, switch and number platforms
+    speed presets), button, sensor (including the Gen 2-only desired RPM sensor's
+    conditional creation), binary_sensor, switch and number platforms
 
   # Gold
   devices: done
@@ -137,9 +138,9 @@ rules:
     CoverDeviceClass.SHADE, and the reboot button uses ButtonDeviceClass.RESTART
   entity-disabled-by-default: done
   comment: |
-    battery, voltage, charging, current RPM and motor power sensors, and the
-    non-reversible limit buttons (set upper/lower limit, clear limits, save limits), are
-    entity_registry_enabled_default=False - the latter since an accidental press could
+    battery, voltage, charging, current RPM, motor power and desired RPM sensors, and
+    the non-reversible limit buttons (set upper/lower limit, clear limits, save limits),
+    are entity_registry_enabled_default=False - the latter since an accidental press could
     miscalibrate the shade's travel range. Jog/Step
     stay enabled since jogging/stepping the other way undoes them. The allow-cloud-connection
     switch is also disabled by default - most users have no reason to touch it, and it's

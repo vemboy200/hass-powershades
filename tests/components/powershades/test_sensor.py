@@ -1,14 +1,30 @@
 """Tests for the PowerShades sensor platform."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from pyowershades import OP_GET_DEBUG_INFO, battery_percentage
+from pyowershades import (
+    OP_GET_DEBUG_INFO,
+    OP_GET_DEVICE_ID,
+    OP_GET_STATUS,
+    PowerShadesConnection,
+    battery_percentage,
+    build_packet,
+)
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.powershades import coordinator as coordinator_module
+from custom_components.powershades.const import DOMAIN
 
-from .conftest import debug_info_packet
+from .conftest import (
+    TEST_IP,
+    TEST_NAME,
+    TEST_SERIAL,
+    debug_info_packet,
+    device_id_packet,
+    status_packet,
+)
 
 LED_COLOR_ENTITY_ID = "sensor.powershade_bedroom_shade_led_color"
 ERROR_ENTITY_ID = "sensor.powershade_bedroom_shade_error"
@@ -16,6 +32,7 @@ RPM_POWER_ENTITY_IDS = (
     "sensor.powershade_bedroom_shade_current_rpm",
     "sensor.powershade_bedroom_shade_motor_power",
 )
+DESIRED_RPM_ENTITY_ID = "sensor.powershade_bedroom_shade_desired_rpm"
 
 
 async def test_sensors_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
@@ -192,3 +209,102 @@ async def test_rpm_and_power_values_when_enabled(
     assert current_rpm.attributes["icon"] == "mdi:speedometer"
     assert motor_power.state == "75"
     assert motor_power.attributes["icon"] == "mdi:engine"
+
+
+async def test_desired_rpm_not_created_on_gen1(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """Gen 1 (the fixture's default) never gets a Desired RPM sensor -
+    Gen 1's Set template forces SpeedControlEnable off, so the field is
+    a confirmed-dead constant 0 there, not useful diagnostics."""
+    registry = er.async_get(hass)
+    assert registry.async_get(DESIRED_RPM_ENTITY_ID) is None
+
+
+async def _setup_entry_with_model_version(hass: HomeAssistant, model_version: int):
+    """Set up a config entry with a specific Get Device ID model_version,
+    like test_init.py's test_setup_entry_fetches_hw_version."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet(model_version=model_version)
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(desired_rpm=33)
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    return entry
+
+
+async def test_desired_rpm_created_disabled_by_default_on_gen2(
+    hass: HomeAssistant,
+) -> None:
+    """On Gen 2, Desired RPM is registered, but disabled by default like
+    the other rarely-useful diagnostic telemetry sensors - unverified
+    against real Gen 2 hardware."""
+    await _setup_entry_with_model_version(hass, model_version=2)
+
+    registry = er.async_get(hass)
+    entry = registry.async_get(DESIRED_RPM_ENTITY_ID)
+    assert entry is not None
+    assert entry.disabled
+
+
+async def test_desired_rpm_value_when_enabled_on_gen2(hass: HomeAssistant) -> None:
+    """Once enabled on Gen 2, the sensor reports Debug Info's desired_rpm."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet(model_version=2)
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(desired_rpm=33)
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        registry = er.async_get(hass)
+        registry.async_update_entity(DESIRED_RPM_ENTITY_ID, disabled_by=None)
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get(DESIRED_RPM_ENTITY_ID)
+    assert state is not None
+    assert state.state == "33"
+    assert state.attributes["icon"] == "mdi:speedometer"

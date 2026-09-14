@@ -191,6 +191,9 @@
             },
             "motor_power": {
                 "name": "Puissance du moteur"
+            },
+            "desired_rpm": {
+                "name": "RPM souhaité"
             }
         },
         "binary_sensor": {
