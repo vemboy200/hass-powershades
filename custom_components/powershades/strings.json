@@ -46,7 +46,18 @@
         },
         "untrusted_server_hostname": {
             "title": "{name} is not configured to talk to PowerShades' own servers",
-            "description": "Your shade's Server Hostname setting is currently \"{hostname}\", not \"{expected}\". This setting controls where the shade's own cloud-facing commands connect - including Check for Updates and the Firmware update entity - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value, since installing could mean fetching firmware from somewhere other than PowerShades. Checking for updates still works, but its \"latest version\" result should not be trusted until this is corrected.\n\nThis integration cannot fix this setting for you (Set Server Hostname isn't implemented here). Correct it using PowerShades' own Config.NET app, or contact PowerShades support if you didn't set this yourself."
+            "description": "Your shade's Server Hostname setting is currently \"{hostname}\", not \"{expected}\". This setting controls where the shade's own cloud-facing commands connect - including Check for Updates and the Firmware update entity - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value, since installing could mean fetching firmware from somewhere other than PowerShades. Checking for updates still works, but its \"latest version\" result should not be trusted until this is corrected.\n\nSelect Fix to reset it back to PowerShades' own domain, or use the powershades.set_server_hostname service directly if you'd rather set a different value.",
+            "fix_flow": {
+                "step": {
+                    "confirm": {
+                        "title": "Reset Server Hostname",
+                        "description": "This will reset the shade's Server Hostname from \"{hostname}\" to PowerShades' own domain, \"{expected}\". Select Submit to continue."
+                    }
+                },
+                "error": {
+                    "reset_failed": "Could not confirm the new hostname was set - the shade may be unreachable, or didn't accept the change. Check the device and try again."
+                }
+            }
         }
     },
     "exceptions": {
@@ -88,6 +99,12 @@
         },
         "untrusted_server_hostname_blocked": {
             "message": "Refusing to install: shade at {ip_address} is configured to talk to \"{hostname}\", not PowerShades' own servers. See the repair issue for details."
+        },
+        "invalid_server_hostname": {
+            "message": "Server hostname must be 1-120 ASCII characters."
+        },
+        "server_hostname_not_confirmed": {
+            "message": "Shade at {ip_address} did not confirm its new server hostname."
         }
     },
     "selector": {

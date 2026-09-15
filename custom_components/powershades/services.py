@@ -46,10 +46,10 @@ def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PowerShadesCoord
 def async_setup_services(hass: HomeAssistant) -> None:
     """Set up PowerShades services.
 
-    set_shade_name is the only service left - every other former service
-    (toggle, jog, step, limits) duplicates a button entity that already
-    exists and takes no parameters, so there's nothing a service adds
-    over just pressing the button.
+    set_shade_name and set_server_hostname are the only services left -
+    every other former service (toggle, jog, step, limits) duplicates a
+    button entity that already exists and takes no parameters, so
+    there's nothing a service adds over just pressing the button.
     """
 
     async def set_shade_name(call: ServiceCall) -> None:
@@ -66,4 +66,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
         "set_shade_name",
         set_shade_name,
         schema=SERVICE_SCHEMA.extend({vol.Required("name"): cv.string}),
+    )
+
+    async def set_server_hostname(call: ServiceCall) -> None:
+        hostname = call.data["hostname"].strip()
+        if not hostname or len(hostname) > 120 or not hostname.isascii():
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_server_hostname",
+            )
+        coordinator = _get_coordinator(hass, call)
+        await coordinator.async_set_server_hostname(hostname)
+        # Local import: __init__.py imports async_setup_services from
+        # this module at load time, so importing back from it at module
+        # level here would be circular. By the time a service actually
+        # runs, __init__ has long finished loading.
+        from . import _async_check_server_hostname
+
+        _async_check_server_hostname(hass, coordinator.config_entry, coordinator)
+
+    hass.services.async_register(
+        DOMAIN,
+        "set_server_hostname",
+        set_server_hostname,
+        schema=SERVICE_SCHEMA.extend({vol.Required("hostname"): cv.string}),
     )

@@ -46,7 +46,18 @@
         },
         "untrusted_server_hostname": {
             "title": "{name} no está configurada para hablar con los propios servidores de PowerShades",
-            "description": "El ajuste de nombre de servidor (Server Hostname) de tu persiana es actualmente \"{hostname}\", no \"{expected}\". Este ajuste controla con qué servidor se conectan los comandos de la persiana relacionados con la nube - incluyendo Buscar actualizaciones y la entidad de actualización de Firmware - y cualquiera en tu red puede cambiarlo, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción de instalar de la entidad Firmware está bloqueada mientras este valor no sea de confianza, ya que instalar podría significar obtener el firmware desde un lugar distinto a PowerShades. Buscar actualizaciones sigue funcionando, pero su resultado de \"última versión\" no debe considerarse fiable hasta corregir esto.\n\nEsta integración no puede corregir este ajuste por ti (Set Server Hostname no está implementado aquí). Corrígelo usando la propia app Config.NET de PowerShades, o contacta con el soporte de PowerShades si tú no configuraste esto."
+            "description": "El ajuste de nombre de servidor (Server Hostname) de tu persiana es actualmente \"{hostname}\", no \"{expected}\". Este ajuste controla con qué servidor se conectan los comandos de la persiana relacionados con la nube - incluyendo Buscar actualizaciones y la entidad de actualización de Firmware - y cualquiera en tu red puede cambiarlo, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción de instalar de la entidad Firmware está bloqueada mientras este valor no sea de confianza, ya que instalar podría significar obtener el firmware desde un lugar distinto a PowerShades. Buscar actualizaciones sigue funcionando, pero su resultado de \"última versión\" no debe considerarse fiable hasta corregir esto.\n\nSelecciona Reparar para restablecerlo al dominio propio de PowerShades, o usa el servicio powershades.set_server_hostname directamente si prefieres establecer otro valor.",
+            "fix_flow": {
+                "step": {
+                    "confirm": {
+                        "title": "Restablecer nombre de servidor",
+                        "description": "Esto restablecerá el Server Hostname de la persiana de \"{hostname}\" al dominio propio de PowerShades, \"{expected}\". Selecciona Enviar para continuar."
+                    }
+                },
+                "error": {
+                    "reset_failed": "No se pudo confirmar el nuevo nombre de servidor - la persiana puede no estar accesible, o no aceptó el cambio. Comprueba el dispositivo e inténtalo de nuevo."
+                }
+            }
         }
     },
     "exceptions": {
@@ -88,6 +99,12 @@
         },
         "untrusted_server_hostname_blocked": {
             "message": "Instalación rechazada: la persiana en {ip_address} está configurada para hablar con \"{hostname}\", no con los servidores de PowerShades. Consulta el problema de reparación para más detalles."
+        },
+        "invalid_server_hostname": {
+            "message": "El nombre de servidor debe tener entre 1 y 120 caracteres ASCII."
+        },
+        "server_hostname_not_confirmed": {
+            "message": "La persiana en {ip_address} no confirmó su nuevo nombre de servidor."
         }
     },
     "selector": {

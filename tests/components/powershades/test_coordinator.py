@@ -29,6 +29,7 @@ from pyowershades import (
     OP_SAVE_LIMITS,
     OP_SET_LIMIT,
     OP_SET_POSITION,
+    OP_SET_SERVER_HOSTNAME,
     OP_STEP_DOWN,
     OP_STEP_UP,
     PowerShadesConnection,
@@ -36,6 +37,7 @@ from pyowershades import (
     StatusReply,
     build_set_limit_payload,
     build_set_position_payload,
+    build_set_server_hostname_payload,
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -647,4 +649,84 @@ async def test_async_install_update_allowed_when_fresh_read_fails(
     coordinator.connection.async_request.assert_any_call(
         OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
     )
+    assert coordinator.server_hostname is None
+
+
+async def test_async_set_server_hostname_confirms_by_reading_back(
+    coordinator,
+) -> None:
+    """Setting the hostname sends the write, then reads Get Serial Number
+    back to confirm the device actually stored it."""
+    calls: list[tuple[int, bytes]] = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append((op, payload))
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="dashboard.powershades.com")
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_set_server_hostname("dashboard.powershades.com")
+
+    ops = [op for op, _ in calls]
+    write_index = ops.index(OP_SET_SERVER_HOSTNAME)
+    read_index = ops.index(OP_GET_SERIAL)
+    assert write_index < read_index
+    assert calls[write_index] == (
+        OP_SET_SERVER_HOSTNAME,
+        build_set_server_hostname_payload("dashboard.powershades.com"),
+    )
+    assert coordinator.server_hostname == "dashboard.powershades.com"
+
+
+async def test_async_set_server_hostname_write_not_acknowledged(coordinator) -> None:
+    """If the write itself isn't acknowledged, the failure is raised the
+    same way as any other unacknowledged command."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_server_hostname("dashboard.powershades.com")
+
+    assert exc_info.value.translation_key == "command_not_acknowledged"
+
+
+async def test_async_set_server_hostname_readback_timeout_raises(coordinator) -> None:
+    """If the write is acknowledged but the confirmation read times out,
+    the failure is raised rather than optimistically assuming success."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_SET_SERVER_HOSTNAME:
+            return b""
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_server_hostname("dashboard.powershades.com")
+
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "server_hostname_not_confirmed"
+    assert coordinator.server_hostname is None
+
+
+async def test_async_set_server_hostname_readback_mismatch_raises(coordinator) -> None:
+    """If the device reports back a different hostname than what was
+    just written, that's treated as a failed write, not success."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="something-else.example.com")
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_server_hostname("dashboard.powershades.com")
+
+    assert exc_info.value.translation_key == "server_hostname_not_confirmed"
     assert coordinator.server_hostname is None

@@ -18,3 +18,23 @@ set_shade_name:
       required: true
       selector:
         text:
+set_server_hostname:
+  name: Set Server Hostname
+  description: Set the DNS hostname the shade resolves for its own outbound connections (1-120 ASCII characters), including Check for Updates and firmware install - most usefully to correct it back to PowerShades' own domain (dashboard.powershades.com) if the untrusted-server-hostname repair issue has fired. This setting is unauthenticated on the device, so double-check the value before sending it.
+  fields:
+    entity_id:
+      name: Entity
+      description: The PowerShades cover entity whose device to reconfigure
+      example: "cover.powershade_living_room"
+      required: true
+      selector:
+        entity:
+          domain: cover
+          integration: powershades
+    hostname:
+      name: Hostname
+      description: The new server hostname
+      example: "dashboard.powershades.com"
+      required: true
+      selector:
+        text:

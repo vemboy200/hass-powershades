@@ -41,6 +41,7 @@ from pyowershades import (
     OP_SAVE_LIMITS,
     OP_SET_LIMIT,
     OP_SET_POSITION,
+    OP_SET_SERVER_HOSTNAME,
     OP_STEP_DOWN,
     OP_STEP_UP,
     DebugInfoReply,
@@ -53,6 +54,7 @@ from pyowershades import (
     build_set_motor_speed_payload_gen1,
     build_set_name_payload,
     build_set_position_payload,
+    build_set_server_hostname_payload,
     parse_cloud_update_reply,
     parse_debug_info_reply,
     parse_disables_reply,
@@ -624,13 +626,13 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         back to the last known value instead of blocking on an unrelated
         connectivity hiccup. Refuses outright if the result isn't
         PowerShades' own domain: this is a hard block, not a warning that
-        can be clicked through, since there's nothing safe to fix from
-        inside HA (Set Server Hostname isn't implemented here) - the
-        repair issue _async_check_server_hostname raises at setup is the
-        proactive half of this, this is the point-of-use backstop. A
-        None server_hostname (never configured, or every read so far has
-        failed) doesn't block - that's the vendor's own default, not
-        evidence of tampering.
+        can be clicked through - the repair issue
+        _async_check_server_hostname raises at setup is the proactive
+        half of this, this is the point-of-use backstop. Use the
+        powershades.set_server_hostname service (see async_set_server_hostname
+        below) to correct it. A None server_hostname (never configured,
+        or every read so far has failed) doesn't block - that's the
+        vendor's own default, not evidence of tampering.
 
         The vendor app's own trigger button doesn't wait for or read a
         reply at all - but every other command in this integration is
@@ -657,3 +659,41 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             )
         await self._async_command(OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD)
         _LOGGER.info("Triggered firmware install for %s", self.ip_address)
+
+    async def async_set_server_hostname(self, hostname: str) -> None:
+        """Set the device's Server Hostname (op 0x0B) and confirm by
+        reading it back.
+
+        This is the only way to correct the untrusted-server-hostname
+        repair issue from inside HA - most usefully by setting it back
+        to TRUSTED_SERVER_HOSTNAME, though this also works as a general
+        "set it to whatever" service matching what the setting itself
+        actually is. The vendor app's own handler doesn't read a reply
+        for this command (same fire-and-forget pattern as Cloud Update's
+        trigger) - this still awaits the normal generic ack via
+        _async_command like every other write in this integration, then
+        re-reads Get Serial Number to confirm the device actually stored
+        the new value, rather than trusting the ack alone. This write
+        (and whether a reply comes back at all) is unverified against
+        real hardware - see pyowershades' docs/PROTOCOL.md.
+        """
+        await self._async_command(
+            OP_SET_SERVER_HOSTNAME, build_set_server_hostname_payload(hostname)
+        )
+        try:
+            reply = await self.connection.async_request(OP_GET_SERIAL)
+        except PowerShadesTimeoutError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="server_hostname_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            ) from err
+        parsed = parse_serial_reply(reply) if reply else None
+        if parsed is None or parsed["server_hostname"] != hostname:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="server_hostname_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            )
+        self.server_hostname = parsed["server_hostname"]
+        _LOGGER.info("Set server hostname to %r for %s", hostname, self.ip_address)

@@ -338,7 +338,8 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
     )
     assert issue is not None
     assert issue.severity is ir.IssueSeverity.CRITICAL
-    assert not issue.is_fixable
+    assert issue.is_fixable
+    assert issue.data == {"entry_id": entry.entry_id}
     assert issue.translation_placeholders == {
         "name": entry.title,
         "hostname": "evil.example.com",

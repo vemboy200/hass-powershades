@@ -28,7 +28,8 @@ rules:
     network dependency declared; no other external requirements besides pyowershades
   docs-actions: done
   comment: |
-    services.yaml documents all actions with descriptions and fields
+    services.yaml documents all actions (set_shade_name, set_server_hostname)
+    with descriptions and fields
   docs-high-level-description: done
   docs-installation-instructions: done
   docs-removal-instructions: done
@@ -82,17 +83,22 @@ rules:
     tests cover the config flow, coordinator (polling, push updates, real motor state
     refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
     speed set, the tight-poll wait-for-stop loop and its timeout, Cloud Update
-    Check/Trigger, the untrusted-server-hostname hard block on install), protocol
-    parsing/building, and the cover (including the Gen 1 speed presets and the
-    end-to-end reset-after-move wiring), button (including Check for Updates),
-    sensor (including the Gen 2-only desired RPM sensor's conditional creation),
+    Check/Trigger, Set Server Hostname's write-then-confirm-by-readback pattern,
+    the untrusted-server-hostname hard block on install), protocol parsing/building,
+    and the cover (including the Gen 1 speed presets and the end-to-end
+    reset-after-move wiring), button (including Check for Updates), sensor
+    (including the Gen 2-only desired RPM sensor's conditional creation),
     binary_sensor, switch (including the Gen 1-only Reset Speed After Move
     switch's RestoreEntity behavior), number (including the Gen 1-only Reset
     Speed To number's RestoreNumber/seeding behavior), update (installed/latest
     version wiring, the version-mismatch/no-update states, the best-effort
-    in_progress signal, and install triggering the device) platforms, and
+    in_progress signal, and install triggering the device) platforms;
     __init__.py's setup/unload flow (RF Gateway and untrusted-server-hostname
-    repair issues created and cleared correctly)
+    repair issues created and cleared correctly); services.py's
+    set_server_hostname (validation, and that a successful correction clears
+    the repair issue immediately rather than waiting for the next reload); and
+    repairs.py's fix flow (the confirm form's placeholders, a successful reset,
+    and the error path shown when the write can't be confirmed)
 
   # Gold
   devices: done
@@ -200,14 +206,17 @@ rules:
     user needs to act on; a non-fixable warning repair issue is created (and
     cleared on unload) if the device identifies as an RF Gateway rather than a
     PoE Shade instead, since this integration is only built and tested against
-    PoE shades and that's a persistent fact worth surfacing. A non-fixable
-    critical repair issue is also created (and cleared on unload) if the
-    device's Server Hostname setting isn't PowerShades' own domain - checked
-    at every setup via Get Serial Number's server_hostname field, independent
-    of whether Check for Updates/Install has ever been used. There's nothing
-    fixable from inside HA (Set Server Hostname isn't implemented), so this is
-    informational like the RF Gateway issue, backed up by a hard block in
-    async_install_update itself as the actual enforcement point
+    PoE shades and that's a persistent fact worth surfacing. A fixable critical
+    repair issue is also created (and cleared on unload) if the device's Server
+    Hostname setting isn't PowerShades' own domain - checked at every setup via
+    Get Serial Number's server_hostname field, independent of whether Check for
+    Updates/Install has ever been used. repairs.py provides a one-click Fix
+    flow that resets it back to the trusted domain via
+    coordinator.async_set_server_hostname (the same method the
+    powershades.set_server_hostname service uses for setting it to any other
+    value), re-reading the device to confirm the write actually took before
+    the issue is considered resolved. async_install_update also re-checks this
+    fresh as a hard block regardless of whether the issue has been seen yet
   stale-devices: exempt
   comment: |
     single device per config entry, nothing to go stale independently

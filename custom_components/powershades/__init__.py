@@ -173,9 +173,11 @@ def _async_check_server_hostname(
     discovered the next time someone tries to use the firmware update
     feature. async_install_update also re-checks this itself as a hard
     block - this issue is the proactive warning, that's the backstop.
-    Non-fixable/informational, like the RF Gateway issue: there's
-    nothing to fix from inside HA, since Set Server Hostname isn't
-    implemented here.
+    Fixable via repairs.py's one-click reset flow (or the
+    powershades.set_server_hostname service directly) - both call
+    coordinator.async_set_server_hostname, which re-reads the device to
+    confirm the write actually took before this issue is considered
+    resolved.
     """
     issue_id = _server_hostname_issue_id(entry)
     if not coordinator.server_hostname or (
@@ -187,7 +189,7 @@ def _async_check_server_hostname(
         hass,
         DOMAIN,
         issue_id,
-        is_fixable=False,
+        is_fixable=True,
         severity=ir.IssueSeverity.CRITICAL,
         translation_key="untrusted_server_hostname",
         translation_placeholders={
@@ -195,6 +197,7 @@ def _async_check_server_hostname(
             "hostname": coordinator.server_hostname,
             "expected": TRUSTED_SERVER_HOSTNAME,
         },
+        data={"entry_id": entry.entry_id},
     )
 
 
