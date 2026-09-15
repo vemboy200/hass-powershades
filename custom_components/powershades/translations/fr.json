@@ -46,12 +46,11 @@
         },
         "untrusted_server_hostname": {
             "title": "{name} n'est pas configuré pour communiquer avec les propres serveurs de PowerShades",
-            "description": "Le paramètre Server Hostname de votre store est actuellement \"{hostname}\", et non \"{expected}\". Ce paramètre détermine le serveur auquel se connectent les commandes cloud du store - y compris Rechercher des mises à jour et l'entité de mise à jour Firmware - et n'importe qui sur votre réseau peut le modifier, le protocole PowerShades n'ayant aucune authentification pour cela.\n\nL'action Installer de l'entité Firmware est bloquée tant que cette valeur n'est pas fiable, car installer pourrait signifier récupérer le firmware ailleurs que chez PowerShades. Rechercher des mises à jour continue de fonctionner, mais son résultat de \"dernière version\" ne doit pas être considéré comme fiable tant que ce n'est pas corrigé.\n\nSélectionnez Réparer pour le réinitialiser au domaine propre de PowerShades, ou utilisez directement le service powershades.set_server_hostname si vous préférez définir une autre valeur.",
             "fix_flow": {
                 "step": {
                     "confirm": {
                         "title": "Réinitialiser le nom de serveur",
-                        "description": "Cela réinitialisera le Server Hostname du store de \"{hostname}\" au domaine propre de PowerShades, \"{expected}\". Sélectionnez Envoyer pour continuer."
+                        "description": "Le paramètre Server Hostname de votre store est actuellement \"{hostname}\", et non \"{expected}\". Ce paramètre détermine le serveur auquel se connectent les commandes cloud du store - y compris Rechercher des mises à jour et l'entité de mise à jour Firmware - et n'importe qui sur votre réseau peut le modifier, le protocole PowerShades n'ayant aucune authentification pour cela.\n\nL'action Installer de l'entité Firmware est bloquée tant que cette valeur n'est pas fiable. Rechercher des mises à jour continue de fonctionner, mais son résultat de \"dernière version\" ne doit pas être considéré comme fiable tant que ce n'est pas corrigé.\n\nSélectionnez Envoyer pour le réinitialiser au domaine propre de PowerShades, \"{expected}\", ou utilisez directement le service powershades.set_server_hostname si vous préférez définir une autre valeur."
                     }
                 },
                 "error": {

@@ -46,12 +46,11 @@
         },
         "untrusted_server_hostname": {
             "title": "{name} no está configurada para hablar con los propios servidores de PowerShades",
-            "description": "El ajuste de nombre de servidor (Server Hostname) de tu persiana es actualmente \"{hostname}\", no \"{expected}\". Este ajuste controla con qué servidor se conectan los comandos de la persiana relacionados con la nube - incluyendo Buscar actualizaciones y la entidad de actualización de Firmware - y cualquiera en tu red puede cambiarlo, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción de instalar de la entidad Firmware está bloqueada mientras este valor no sea de confianza, ya que instalar podría significar obtener el firmware desde un lugar distinto a PowerShades. Buscar actualizaciones sigue funcionando, pero su resultado de \"última versión\" no debe considerarse fiable hasta corregir esto.\n\nSelecciona Reparar para restablecerlo al dominio propio de PowerShades, o usa el servicio powershades.set_server_hostname directamente si prefieres establecer otro valor.",
             "fix_flow": {
                 "step": {
                     "confirm": {
                         "title": "Restablecer nombre de servidor",
-                        "description": "Esto restablecerá el Server Hostname de la persiana de \"{hostname}\" al dominio propio de PowerShades, \"{expected}\". Selecciona Enviar para continuar."
+                        "description": "El ajuste de nombre de servidor (Server Hostname) de tu persiana es actualmente \"{hostname}\", no \"{expected}\". Este ajuste controla con qué servidor se conectan los comandos de la persiana relacionados con la nube - incluyendo Buscar actualizaciones y la entidad de actualización de Firmware - y cualquiera en tu red puede cambiarlo, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción de instalar de la entidad Firmware está bloqueada mientras este valor no sea de confianza. Buscar actualizaciones sigue funcionando, pero su resultado de \"última versión\" no debe considerarse fiable hasta corregir esto.\n\nSelecciona Enviar para restablecerlo al dominio propio de PowerShades, \"{expected}\", o usa el servicio powershades.set_server_hostname directamente si prefieres establecer otro valor."
                     }
                 },
                 "error": {
