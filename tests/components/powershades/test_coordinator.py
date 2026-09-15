@@ -1,19 +1,24 @@
 """Tests for the PowerShades data update coordinator."""
 
 import struct
+from unittest import mock
 from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from pyowershades import (
     ADMIN_ACCESS_PAYLOAD,
+    CLOUD_UPDATE_CHECK_PAYLOAD,
+    CLOUD_UPDATE_INSTALL_PAYLOAD,
     DISABLE_TCP_CLOUD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_ADMIN_ACCESS,
     OP_CLEAR_LIMITS,
+    OP_CLOUD_UPDATE,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
+    OP_GET_SERIAL,
     OP_GET_STATUS,
     OP_INDICATE,
     OP_JOG_DOWN,
@@ -42,9 +47,11 @@ from .conftest import (
     TEST_IP,
     TEST_NAME,
     TEST_SERIAL,
+    cloud_update_packet,
     debug_info_packet,
     disables_packet,
     motor_params_packet,
+    serial_packet,
     status_packet,
 )
 
@@ -414,3 +421,230 @@ async def test_async_set_motor_speed_failure_raises(coordinator) -> None:
         await coordinator.async_set_motor_speed(70)
 
     assert exc_info.value.translation_key == "motor_speed_not_confirmed"
+
+
+async def test_async_wait_for_stop_true_once_idle_and_position_stable(
+    coordinator,
+) -> None:
+    """Waits through movement (motor_state nonzero, position changing),
+    then requires the idle reading to repeat with an unchanged position
+    before treating it as a real stop rather than a momentary lull."""
+    replies = iter(
+        [
+            debug_info_packet(motor_state=2, current_percent=60),
+            debug_info_packet(motor_state=2, current_percent=80),
+            debug_info_packet(motor_state=0, current_percent=100),
+            debug_info_packet(motor_state=0, current_percent=100),
+        ]
+    )
+    calls = 0
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        nonlocal calls
+        calls += 1
+        return next(replies)
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with mock.patch.object(coordinator_module, "_RESET_SPEED_POLL_INTERVAL", 0):
+        result = await coordinator._async_wait_for_stop()
+
+    assert result is True
+    assert calls == 4
+    assert coordinator.data.position == 100
+
+
+async def test_async_wait_for_stop_false_on_timeout(coordinator) -> None:
+    """Gives up rather than waiting forever if the shade never settles."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        return debug_info_packet(motor_state=2, current_percent=50)
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with (
+        mock.patch.object(coordinator_module, "_RESET_SPEED_POLL_INTERVAL", 0),
+        mock.patch.object(coordinator_module, "_RESET_SPEED_MAX_WAIT", 0),
+    ):
+        result = await coordinator._async_wait_for_stop()
+
+    assert result is False
+
+
+async def test_async_reset_speed_after_move_sets_speed_once_stopped(
+    coordinator,
+) -> None:
+    """Once the shade settles, the motor speed is reset to the given
+    target via the normal admin-gated Set."""
+    coordinator.hw_version = "Gen 1"
+    replies = iter(
+        [
+            debug_info_packet(motor_state=0, current_percent=100),
+            debug_info_packet(motor_state=0, current_percent=100),
+        ]
+    )
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_DEBUG_INFO:
+            return next(replies)
+        if op == OP_POE_MOTOR_PARAMS:
+            return motor_params_packet(motor_power_up=100)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with mock.patch.object(coordinator_module, "_RESET_SPEED_POLL_INTERVAL", 0):
+        await coordinator.async_reset_speed_after_move(100)
+
+    coordinator.connection.async_request.assert_any_call(
+        OP_ADMIN_ACCESS, ADMIN_ACCESS_PAYLOAD
+    )
+    assert coordinator.motor_speed_percent == 100
+
+
+async def test_async_reset_speed_after_move_skips_set_on_timeout(coordinator) -> None:
+    """If the shade never settles, the speed is left alone rather than
+    resetting it mid-move."""
+    coordinator.hw_version = "Gen 1"
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(motor_state=2, current_percent=50)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with (
+        mock.patch.object(coordinator_module, "_RESET_SPEED_POLL_INTERVAL", 0),
+        mock.patch.object(coordinator_module, "_RESET_SPEED_MAX_WAIT", 0),
+    ):
+        await coordinator.async_reset_speed_after_move(100)
+
+    ops = [call.args[0] for call in coordinator.connection.async_request.call_args_list]
+    assert OP_POE_MOTOR_PARAMS not in ops
+
+
+async def test_async_check_for_update_stores_result(coordinator) -> None:
+    """Checking for updates sends the check flag and stores the raw
+    revision number the device reports."""
+    calls: list[tuple[int, bytes]] = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append((op, payload))
+        if op == OP_CLOUD_UPDATE:
+            return cloud_update_packet(result=512)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_check_for_update()
+
+    assert calls == [(OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD)]
+    assert coordinator.latest_firmware_version == "512"
+
+
+async def test_async_check_for_update_failure_raises(coordinator) -> None:
+    """If the device doesn't reply, the failure is raised rather than
+    silently leaving the old value in place."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_check_for_update()
+
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "update_check_not_confirmed"
+    assert exc_info.value.translation_placeholders == {
+        "ip_address": coordinator.ip_address
+    }
+
+
+async def test_async_install_update_sends_trigger_flag(coordinator) -> None:
+    """Triggering an install sends the install flag and awaits the
+    normal command acknowledgment, like every other command here."""
+    await coordinator.async_install_update()
+
+    coordinator.connection.async_request.assert_any_call(
+        OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
+    )
+
+
+async def test_async_install_update_failure_raises(coordinator) -> None:
+    """If the device doesn't acknowledge the trigger, the failure is
+    raised the same way as any other unacknowledged command."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        raise PowerShadesTimeoutError("no reply")
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_install_update()
+
+    assert exc_info.value.translation_key == "command_not_acknowledged"
+
+
+async def test_async_install_update_blocked_on_untrusted_hostname(coordinator) -> None:
+    """Install re-reads server_hostname fresh and refuses outright if it
+    isn't PowerShades' own domain - the actual install command is never
+    sent to the device."""
+    coordinator.server_hostname = "dashboard.powershades.com"  # stale, from setup
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="evil.example.com")
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_install_update()
+
+    assert exc_info.value.translation_domain == DOMAIN
+    assert exc_info.value.translation_key == "untrusted_server_hostname_blocked"
+    assert exc_info.value.translation_placeholders == {
+        "ip_address": coordinator.ip_address,
+        "hostname": "evil.example.com",
+    }
+    # The stale cached value was updated to the freshly-read one.
+    assert coordinator.server_hostname == "evil.example.com"
+    ops = [call.args[0] for call in coordinator.connection.async_request.call_args_list]
+    assert OP_CLOUD_UPDATE not in ops
+
+
+async def test_async_install_update_allowed_on_trusted_hostname(coordinator) -> None:
+    """Install proceeds normally when a fresh read confirms PowerShades'
+    own domain (the coordinator fixture's default)."""
+    await coordinator.async_install_update()
+
+    coordinator.connection.async_request.assert_any_call(OP_GET_SERIAL)
+    coordinator.connection.async_request.assert_any_call(
+        OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
+    )
+    assert coordinator.server_hostname == "dashboard.powershades.com"
+
+
+async def test_async_install_update_allowed_when_fresh_read_fails(
+    coordinator,
+) -> None:
+    """If the fresh Get Serial Number read times out, install still
+    proceeds using whatever was last known, rather than blocking on an
+    unrelated connectivity hiccup."""
+    assert coordinator.server_hostname is None
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_SERIAL:
+            raise PowerShadesTimeoutError("no reply")
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_install_update()
+
+    coordinator.connection.async_request.assert_any_call(
+        OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
+    )
+    assert coordinator.server_hostname is None

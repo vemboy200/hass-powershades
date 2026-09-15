@@ -20,7 +20,7 @@ from pyowershades import (
     parse_serial_reply,
 )
 
-from .const import DOMAIN, RF_GATEWAY_ISSUE_URL
+from .const import DOMAIN, RF_GATEWAY_ISSUE_URL, TRUSTED_SERVER_HOSTNAME
 from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 from .discovery import async_start_discovery
 from .services import async_setup_services
@@ -34,26 +34,29 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.SENSOR,
     Platform.SWITCH,
+    Platform.UPDATE,
 ]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-async def _async_backfill_model(
+async def _async_fetch_serial_info(
     hass: HomeAssistant,
     entry: PowerShadesConfigEntry,
     coordinator: PowerShadesCoordinator,
 ) -> None:
-    """Backfill the model for entries that predate it being stored.
+    """Fetch Get Serial Number, backfilling model (for entries that
+    predate it being stored) and refreshing server_hostname.
 
     Called right after a successful first refresh, so the device is
-    known reachable. Best-effort: silently keeps the entry unchanged on
-    lookup failure. The MAC address isn't backfilled this way - it's
-    only ever known when a device is found via DHCP discovery, which
-    already carries the sender's MAC for free.
+    known reachable. Runs on every setup, not just for legacy entries
+    missing a model - server_hostname needs re-checking every time,
+    since it can change at any point after setup (see
+    _async_check_server_hostname). Best-effort: silently keeps
+    everything unchanged on lookup failure. The MAC address isn't
+    backfilled this way - it's only ever known when a device is found
+    via DHCP discovery, which already carries the sender's MAC for free.
     """
-    if entry.data.get("model") is not None:
-        return
     try:
         reply = await coordinator.connection.async_request(OP_GET_SERIAL)
     except PowerShadesTimeoutError:
@@ -61,13 +64,15 @@ async def _async_backfill_model(
     parsed = parse_serial_reply(reply) if reply else None
     if parsed is None:
         return
-    coordinator.model = parsed["model"]
-    _LOGGER.debug(
-        "Backfilled model for shade %s: %s", entry.data["ip"], parsed["model"]
-    )
-    hass.config_entries.async_update_entry(
-        entry, data={**entry.data, "model": parsed["model"]}
-    )
+    coordinator.server_hostname = parsed["server_hostname"]
+    if entry.data.get("model") is None:
+        coordinator.model = parsed["model"]
+        _LOGGER.debug(
+            "Backfilled model for shade %s: %s", entry.data["ip"], parsed["model"]
+        )
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, "model": parsed["model"]}
+        )
 
 
 # model_version from Get Device ID. 0 = Gen 1 is confirmed by the
@@ -146,6 +151,53 @@ def _async_check_rf_gateway(
     )
 
 
+def _server_hostname_issue_id(entry: PowerShadesConfigEntry) -> str:
+    """Return the repair issue ID for an untrusted server hostname."""
+    return f"untrusted_server_hostname_{entry.entry_id}"
+
+
+def _async_check_server_hostname(
+    hass: HomeAssistant,
+    entry: PowerShadesConfigEntry,
+    coordinator: PowerShadesCoordinator,
+) -> None:
+    """Warn if this device's Server Hostname setting isn't PowerShades'
+    own domain.
+
+    That setting (op 0x0B, Set Server Hostname) controls where the
+    device's cloud-facing commands actually connect - Cloud Update
+    Check/Trigger among them - and it's completely unauthenticated, like
+    every other command in this protocol. Checked at every setup,
+    independent of whether Check for Updates has ever been pressed, so a
+    redirected device is surfaced proactively rather than only being
+    discovered the next time someone tries to use the firmware update
+    feature. async_install_update also re-checks this itself as a hard
+    block - this issue is the proactive warning, that's the backstop.
+    Non-fixable/informational, like the RF Gateway issue: there's
+    nothing to fix from inside HA, since Set Server Hostname isn't
+    implemented here.
+    """
+    issue_id = _server_hostname_issue_id(entry)
+    if not coordinator.server_hostname or (
+        coordinator.server_hostname == TRUSTED_SERVER_HOSTNAME
+    ):
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+        return
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        issue_id,
+        is_fixable=False,
+        severity=ir.IssueSeverity.CRITICAL,
+        translation_key="untrusted_server_hostname",
+        translation_placeholders={
+            "name": entry.title,
+            "hostname": coordinator.server_hostname,
+            "expected": TRUSTED_SERVER_HOSTNAME,
+        },
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) -> bool:
     """Set up PowerShades from a config entry."""
     connection = PowerShadesConnection(entry.data["ip"])
@@ -161,11 +213,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.runtime_data = coordinator
     entry.async_on_unload(connection.close)
 
-    await _async_backfill_model(hass, entry, coordinator)
+    await _async_fetch_serial_info(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
     await coordinator.async_fetch_disables_state()
     await coordinator.async_fetch_motor_speed()
     _async_check_rf_gateway(hass, entry, coordinator)
+    _async_check_server_hostname(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -176,4 +229,5 @@ async def async_unload_entry(
 ) -> bool:
     """Unload a config entry."""
     ir.async_delete_issue(hass, DOMAIN, _rf_gateway_issue_id(entry))
+    ir.async_delete_issue(hass, DOMAIN, _server_hostname_issue_id(entry))
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

@@ -112,6 +112,13 @@ BUTTONS: tuple[PowerShadesButtonDescription, ...] = (
         entity_registry_enabled_default=False,
         press_fn=lambda coordinator: coordinator.async_save_limits(),
     ),
+    PowerShadesButtonDescription(
+        key="check_for_updates",
+        translation_key="check_for_updates",
+        device_class=ButtonDeviceClass.UPDATE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        press_fn=lambda coordinator: coordinator.async_check_for_update(),
+    ),
 )
 
 

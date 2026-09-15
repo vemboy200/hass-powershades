@@ -18,7 +18,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.powershades.const import DOMAIN
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from .conftest import (
@@ -27,6 +27,7 @@ from .conftest import (
     TEST_SERIAL,
     debug_info_packet,
     device_id_packet,
+    serial_packet,
     status_packet,
 )
 
@@ -288,6 +289,155 @@ async def test_unload_entry_clears_rf_gateway_issue(hass: HomeAssistant) -> None
 
         issue_registry = ir.async_get(hass)
         issue_id = f"rf_gateway_unsupported_{entry.entry_id}"
+        assert issue_registry.async_get_issue(DOMAIN, issue_id)
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_setup_entry_warns_on_untrusted_server_hostname(
+    hass: HomeAssistant,
+) -> None:
+    """A device pointed at a server other than PowerShades' own raises a
+    critical repair issue."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="evil.example.com")
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.runtime_data.server_hostname == "evil.example.com"
+
+    issue_registry = ir.async_get(hass)
+    issue = issue_registry.async_get_issue(
+        DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+    )
+    assert issue is not None
+    assert issue.severity is ir.IssueSeverity.CRITICAL
+    assert not issue.is_fixable
+    assert issue.translation_placeholders == {
+        "name": entry.title,
+        "hostname": "evil.example.com",
+        "expected": TRUSTED_SERVER_HOSTNAME,
+    }
+
+
+async def test_setup_entry_no_issue_for_trusted_server_hostname(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """A device pointed at PowerShades' own server never gets the issue
+    (the config_entry fixture's default is the trusted hostname)."""
+    assert config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAME
+
+    issue_registry = ir.async_get(hass)
+    assert (
+        issue_registry.async_get_issue(
+            DOMAIN, f"untrusted_server_hostname_{config_entry.entry_id}"
+        )
+        is None
+    )
+
+
+async def test_setup_entry_no_issue_when_hostname_never_configured(
+    hass: HomeAssistant,
+) -> None:
+    """An empty/unset hostname (the vendor's own default) isn't treated
+    as evidence of tampering."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="")
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.runtime_data.server_hostname is None
+
+    issue_registry = ir.async_get(hass)
+    assert (
+        issue_registry.async_get_issue(
+            DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+        )
+        is None
+    )
+
+
+async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) -> None:
+    """Unloading an untrusted-hostname entry clears its repair issue."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="evil.example.com")
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        issue_registry = ir.async_get(hass)
+        issue_id = f"untrusted_server_hostname_{entry.entry_id}"
         assert issue_registry.async_get_issue(DOMAIN, issue_id)
 
         assert await hass.config_entries.async_unload(entry.entry_id)

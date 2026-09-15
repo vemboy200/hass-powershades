@@ -43,6 +43,10 @@
         "rf_gateway_unsupported": {
             "title": "{name} identifies as an RF Gateway, not a PoE Shade",
             "description": "Your device identifies as an RF Gateway, not a PoE Shade. The maintainer of hass-powershades (@vemboy200) cannot build or test this integration against RF gateways.\n\nThis can mean some entities may not work as expected, a future change could unknowingly break compatibility, and there's no support for features exclusive to RF gateways. On top of that, there's no documentation for this setup, and dynamic and stale device handling (which doesn't matter for PoE shades) isn't implemented, despite this integration claiming Platinum.\n\nPlease report your experience so this can be tracked and improved."
+        },
+        "untrusted_server_hostname": {
+            "title": "{name} is not configured to talk to PowerShades' own servers",
+            "description": "Your shade's Server Hostname setting is currently \"{hostname}\", not \"{expected}\". This setting controls where the shade's own cloud-facing commands connect - including Check for Updates and the Firmware update entity - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value, since installing could mean fetching firmware from somewhere other than PowerShades. Checking for updates still works, but its \"latest version\" result should not be trusted until this is corrected.\n\nThis integration cannot fix this setting for you (Set Server Hostname isn't implemented here). Correct it using PowerShades' own Config.NET app, or contact PowerShades support if you didn't set this yourself."
         }
     },
     "exceptions": {
@@ -78,6 +82,12 @@
         },
         "motor_speed_gen1_only": {
             "message": "Setting motor speed is only supported on Gen 1 devices - {ip_address} reports {hw_version}."
+        },
+        "update_check_not_confirmed": {
+            "message": "Shade at {ip_address} did not respond to the update check."
+        },
+        "untrusted_server_hostname_blocked": {
+            "message": "Refusing to install: shade at {ip_address} is configured to talk to \"{hostname}\", not PowerShades' own servers. See the repair issue for details."
         }
     },
     "selector": {
@@ -134,6 +144,9 @@
             },
             "save_limits": {
                 "name": "Save Limits"
+            },
+            "check_for_updates": {
+                "name": "Check for Updates"
             }
         },
         "sensor": {
@@ -207,11 +220,22 @@
         "switch": {
             "allow_cloud_connection": {
                 "name": "Allow Cloud Connection"
+            },
+            "reset_speed_after_move": {
+                "name": "Reset Speed After Move"
             }
         },
         "number": {
             "motor_speed": {
                 "name": "Speed"
+            },
+            "reset_speed_to": {
+                "name": "Reset Speed To"
+            }
+        },
+        "update": {
+            "firmware": {
+                "name": "Firmware"
             }
         }
     }

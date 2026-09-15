@@ -43,6 +43,10 @@
         "rf_gateway_unsupported": {
             "title": "{name} se identifica como un RF Gateway, no un PoE Shade",
             "description": "Tu dispositivo se identifica como un RF Gateway, no un PoE Shade. El mantenedor de hass-powershades (@vemboy200) no puede compilar ni probar esta integración con RF gateways.\n\nEsto puede significar que algunas entidades no funcionen como se espera, que un futuro cambio rompa la compatibilidad sin darse cuenta, y que no haya soporte para funciones exclusivas de los RF gateways. Además, no hay documentación para esta configuración, y el manejo de dispositivos dinámicos y obsoletos (que no importa en los PoE Shades) no está implementado, a pesar de que esta integración afirma ser Platinum.\n\nPor favor, informa tu experiencia para que esto pueda rastrearse y mejorarse."
+        },
+        "untrusted_server_hostname": {
+            "title": "{name} no está configurada para hablar con los propios servidores de PowerShades",
+            "description": "El ajuste de nombre de servidor (Server Hostname) de tu persiana es actualmente \"{hostname}\", no \"{expected}\". Este ajuste controla con qué servidor se conectan los comandos de la persiana relacionados con la nube - incluyendo Buscar actualizaciones y la entidad de actualización de Firmware - y cualquiera en tu red puede cambiarlo, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción de instalar de la entidad Firmware está bloqueada mientras este valor no sea de confianza, ya que instalar podría significar obtener el firmware desde un lugar distinto a PowerShades. Buscar actualizaciones sigue funcionando, pero su resultado de \"última versión\" no debe considerarse fiable hasta corregir esto.\n\nEsta integración no puede corregir este ajuste por ti (Set Server Hostname no está implementado aquí). Corrígelo usando la propia app Config.NET de PowerShades, o contacta con el soporte de PowerShades si tú no configuraste esto."
         }
     },
     "exceptions": {
@@ -78,6 +82,12 @@
         },
         "motor_speed_gen1_only": {
             "message": "Ajustar la velocidad del motor solo es compatible con dispositivos Gen 1 - {ip_address} informa {hw_version}."
+        },
+        "update_check_not_confirmed": {
+            "message": "La persiana en {ip_address} no respondió a la comprobación de actualizaciones."
+        },
+        "untrusted_server_hostname_blocked": {
+            "message": "Instalación rechazada: la persiana en {ip_address} está configurada para hablar con \"{hostname}\", no con los servidores de PowerShades. Consulta el problema de reparación para más detalles."
         }
     },
     "selector": {
@@ -134,6 +144,9 @@
             },
             "save_limits": {
                 "name": "Guardar límites"
+            },
+            "check_for_updates": {
+                "name": "Buscar actualizaciones"
             }
         },
         "sensor": {
@@ -207,11 +220,22 @@
         "switch": {
             "allow_cloud_connection": {
                 "name": "Permitir conexión a la nube"
+            },
+            "reset_speed_after_move": {
+                "name": "Restablecer velocidad tras el movimiento"
             }
         },
         "number": {
             "motor_speed": {
                 "name": "Velocidad"
+            },
+            "reset_speed_to": {
+                "name": "Restablecer velocidad a"
+            }
+        },
+        "update": {
+            "firmware": {
+                "name": "Firmware"
             }
         }
     }

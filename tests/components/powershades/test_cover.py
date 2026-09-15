@@ -1,6 +1,7 @@
 """Tests for the PowerShades cover platform."""
 
-from unittest.mock import AsyncMock
+import struct
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.components.cover import (
     ATTR_SPEED,
@@ -12,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from pyowershades import (
     ADMIN_ACCESS_PAYLOAD,
     OP_ADMIN_ACCESS,
+    OP_GET_DEBUG_INFO,
     OP_JOG_STOP,
     OP_POE_MOTOR_PARAMS,
     OP_SET_POSITION,
@@ -22,7 +24,11 @@ from pyowershades import (
 from custom_components.powershades import coordinator as coordinator_module
 from custom_components.powershades.cover import SPEED_PRESETS
 
-from .conftest import motor_params_packet
+from .conftest import debug_info_packet, motor_params_packet
+
+# Same field layout the outgoing Set PoE Motor Parameters payload uses -
+# see build_set_motor_speed_payload_gen1's docstring.
+_SET_MOTOR_PARAMS_FORMAT = "<4BhhIIHHhhIIHHhhBBHH"
 
 ENTITY_ID = "cover.powershade_bedroom_shade"
 
@@ -229,3 +235,91 @@ async def test_open_cover_without_speed_does_not_touch_motor_speed(
     ops = [call.args[0] for call in coordinator.connection.async_request.call_args_list]
     assert OP_ADMIN_ACCESS not in ops
     assert OP_POE_MOTOR_PARAMS not in ops
+
+
+async def test_open_cover_with_speed_resets_after_move_when_enabled(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """With Reset Speed After Move on, the speed is set back once the
+    shade actually finishes moving, rather than staying pinned to the
+    preset - that's the whole point of the feature."""
+    coordinator = config_entry.runtime_data
+    coordinator.reset_speed_after_move = True
+    coordinator.reset_speed_to_percent = 100
+
+    calls: list[tuple[int, bytes]] = []
+    debug_replies = iter(
+        [
+            debug_info_packet(motor_state=12, current_percent=80),  # initial refresh
+            debug_info_packet(motor_state=12, current_percent=40),  # still moving
+            debug_info_packet(motor_state=0, current_percent=0),  # idle, position moved
+            debug_info_packet(motor_state=0, current_percent=0),  # idle, stable -> stop
+        ]
+    )
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append((op, payload))
+        if op == OP_GET_DEBUG_INFO:
+            return next(debug_replies)
+        if op == OP_POE_MOTOR_PARAMS:
+            if payload:
+                fields = struct.unpack(_SET_MOTOR_PARAMS_FORMAT, payload)
+                return motor_params_packet(motor_power_up=fields[10])
+            return motor_params_packet(motor_power_up=100)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with patch.object(coordinator_module, "_RESET_SPEED_POLL_INTERVAL", 0):
+        await hass.services.async_call(
+            "cover",
+            "close_cover",
+            {"entity_id": ENTITY_ID, ATTR_SPEED: "slow"},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    motor_param_writes = [
+        payload for op, payload in calls if op == OP_POE_MOTOR_PARAMS and payload
+    ]
+    assert len(motor_param_writes) == 2
+    first_fields = struct.unpack(_SET_MOTOR_PARAMS_FORMAT, motor_param_writes[0])
+    assert first_fields[10] == SPEED_PRESETS["slow"]
+    reset_fields = struct.unpack(_SET_MOTOR_PARAMS_FORMAT, motor_param_writes[-1])
+    assert reset_fields[10] == 100
+    assert coordinator.motor_speed_percent == 100
+
+
+async def test_open_cover_with_speed_does_not_reset_when_disabled(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """With Reset Speed After Move off (the default), the preset speed
+    sticks, matching the Speed number entity's own always-sticky
+    behavior - no reset is scheduled at all."""
+    coordinator = config_entry.runtime_data
+    assert coordinator.reset_speed_after_move is False
+
+    calls: list[tuple[int, bytes]] = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append((op, payload))
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet(motor_state=0, current_percent=100)
+        if op == OP_POE_MOTOR_PARAMS:
+            return motor_params_packet(motor_power_up=SPEED_PRESETS["fast"])
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await hass.services.async_call(
+        "cover",
+        "open_cover",
+        {"entity_id": ENTITY_ID, ATTR_SPEED: "fast"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    motor_param_writes = [
+        payload for op, payload in calls if op == OP_POE_MOTOR_PARAMS and payload
+    ]
+    assert len(motor_param_writes) == 1

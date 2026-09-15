@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -18,14 +19,18 @@ from homeassistant.helpers.update_coordinator import (
 )
 from pyowershades import (
     ADMIN_ACCESS_PAYLOAD,
+    CLOUD_UPDATE_CHECK_PAYLOAD,
+    CLOUD_UPDATE_INSTALL_PAYLOAD,
     GET_SHADE_NAME_PAYLOAD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     MODEL_NAMES,
     OP_ADMIN_ACCESS,
     OP_CLEAR_LIMITS,
+    OP_CLOUD_UPDATE,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
+    OP_GET_SERIAL,
     OP_GET_SHADE_NAME,
     OP_INDICATE,
     OP_JOG_DOWN,
@@ -38,6 +43,7 @@ from pyowershades import (
     OP_SET_POSITION,
     OP_STEP_DOWN,
     OP_STEP_UP,
+    DebugInfoReply,
     PowerShadesConnection,
     PowerShadesTimeoutError,
     StatusReply,
@@ -47,17 +53,26 @@ from pyowershades import (
     build_set_motor_speed_payload_gen1,
     build_set_name_payload,
     build_set_position_payload,
+    parse_cloud_update_reply,
     parse_debug_info_reply,
     parse_disables_reply,
     parse_motor_parameters_reply,
+    parse_serial_reply,
     parse_shade_name_reply,
 )
 
-from .const import DOMAIN
+from .const import DOMAIN, TRUSTED_SERVER_HOSTNAME
 
 _LOGGER = logging.getLogger(__name__)
 
 type PowerShadesConfigEntry = ConfigEntry[PowerShadesCoordinator]
+
+# How often to poll Debug Info while waiting for a speed-carrying move to
+# finish, and how long to wait before giving up. Tighter than the normal
+# 10s/5s poll cycle on purpose - the speed reset should follow the actual
+# stop closely, not lag behind by up to a full poll interval.
+_RESET_SPEED_POLL_INTERVAL = 2
+_RESET_SPEED_MAX_WAIT = 120
 
 
 @dataclass(frozen=True)
@@ -107,6 +122,25 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         # PoE Motor Parameters (op 0x27) - also configuration, fetched
         # once at setup and again after a write, not on every poll.
         self.motor_speed_percent: int | None = None
+        # Cover speed-preset reset behavior - purely integration-side
+        # preferences with no device-side equivalent, owned by the
+        # switch/number entities themselves (RestoreEntity/RestoreNumber)
+        # and mirrored here so cover.py can read them without an
+        # entity-to-entity lookup.
+        self.reset_speed_after_move: bool = False
+        self.reset_speed_to_percent: int = 100
+        # Cloud Update Check/Trigger (op 0x44) - purely user-triggered
+        # (via the Check for Updates button), never fetched automatically
+        # at setup or on a poll, matching this integration's local-only
+        # philosophy elsewhere: this op asks the device itself to reach
+        # out to PowerShades' cloud, so it only happens when asked.
+        self.latest_firmware_version: str | None = None
+        # Get Serial Number's server_hostname field (config, not
+        # telemetry - fetched once at setup, like model/hw_version).
+        # None means either it was never configured (the vendor's own
+        # default) or the fetch failed - both treated as "nothing to
+        # warn about" by _async_check_server_hostname in __init__.py.
+        self.server_hostname: str | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -193,6 +227,27 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         self.last_update_success = True
         self.async_update_listeners()
 
+    def _data_from_debug_info(self, debug_info: DebugInfoReply) -> PowerShadesData:
+        position = (
+            debug_info.current_percent
+            if 0 <= debug_info.current_percent <= 100
+            else None
+        )
+        return PowerShadesData(
+            position=position,
+            battery_mv=debug_info.battery_mv,
+            battery_percentage=battery_percentage(debug_info.battery_mv),
+            io_green_led=debug_info.io_green_led,
+            io_red_led=debug_info.io_red_led,
+            io_motor_sleep=debug_info.io_motor_sleep,
+            io_poe_status=debug_info.io_poe_status,
+            motor_state=debug_info.motor_state,
+            error_list=debug_info.error_list,
+            velocity_rpm=debug_info.velocity_rpm,
+            desired_rpm=debug_info.desired_rpm,
+            motor_duty_cycle=debug_info.motor_duty_cycle,
+        )
+
     @override
     async def _async_update_data(self) -> PowerShadesData:
         """Poll the device for status via a single Debug Info request.
@@ -220,28 +275,60 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                 translation_key="update_malformed_reply",
                 translation_placeholders={"ip_address": self.ip_address},
             )
-        position = (
-            debug_info.current_percent
-            if 0 <= debug_info.current_percent <= 100
-            else None
-        )
-        data = PowerShadesData(
-            position=position,
-            battery_mv=debug_info.battery_mv,
-            battery_percentage=battery_percentage(debug_info.battery_mv),
-            io_green_led=debug_info.io_green_led,
-            io_red_led=debug_info.io_red_led,
-            io_motor_sleep=debug_info.io_motor_sleep,
-            io_poe_status=debug_info.io_poe_status,
-            motor_state=debug_info.motor_state,
-            error_list=debug_info.error_list,
-            velocity_rpm=debug_info.velocity_rpm,
-            desired_rpm=debug_info.desired_rpm,
-            motor_duty_cycle=debug_info.motor_duty_cycle,
-        )
+        data = self._data_from_debug_info(debug_info)
         # Poll faster while the position is unknown
         self.update_interval = timedelta(seconds=5 if data.position is None else 10)
         return data
+
+    async def _async_wait_for_stop(self) -> bool:
+        """Poll Debug Info at a tight interval until the shade goes idle.
+
+        motor_state is the authoritative "still moving" signal, but it's
+        only refreshed by polling (push replies carry position but not
+        motor_state, per _handle_status_push), so this also cross-checks
+        that position has stopped changing between two consecutive polls
+        before treating a single idle reading as a real stop rather than
+        a momentary lull. Returns False if the shade never settles within
+        _RESET_SPEED_MAX_WAIT.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _RESET_SPEED_MAX_WAIT
+        last_position: int | None = None
+        while loop.time() < deadline:
+            try:
+                raw = await self.connection.async_request(OP_GET_DEBUG_INFO)
+            except PowerShadesTimeoutError:
+                await asyncio.sleep(_RESET_SPEED_POLL_INTERVAL)
+                continue
+            debug_info = parse_debug_info_reply(raw)
+            if debug_info is not None:
+                data = self._data_from_debug_info(debug_info)
+                self.async_set_updated_data(data)
+                if not debug_info.motor_state and data.position == last_position:
+                    return True
+                last_position = data.position
+            await asyncio.sleep(_RESET_SPEED_POLL_INTERVAL)
+        return False
+
+    async def async_reset_speed_after_move(self, target_percent: int) -> None:
+        """Wait for the current move to finish, then reset the motor speed.
+
+        Meant to be run as a background task (fire-and-forget from
+        cover.py) rather than awaited inline - blocking a cover service
+        call for the shade's whole travel time would be wrong. If HA
+        restarts mid-move this task is simply lost and the speed stays
+        pinned to the preset until the next speed-carrying move.
+        """
+        if not await self._async_wait_for_stop():
+            _LOGGER.warning(
+                "Timed out waiting for %s to stop before resetting speed",
+                self.ip_address,
+            )
+            return
+        try:
+            await self.async_set_motor_speed(target_percent)
+        except HomeAssistantError:
+            _LOGGER.warning("Failed to reset speed for %s after move", self.ip_address)
 
     async def _async_command(self, op: int, payload: bytes = b"") -> None:
         """Send a command and await the device's echo reply (ACK).
@@ -488,3 +575,85 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                 device.id, name=f"PowerShade {confirmed}"
             )
         _LOGGER.info("Renamed shade %s to %r", self.ip_address, confirmed)
+
+    async def async_check_for_update(self) -> None:
+        """Ask the device to check its own cloud dashboard for newer
+        firmware (op 0x44, flag 1).
+
+        Not admin-gated, unlike PoE Motor Parameters - the vendor app
+        sends this standalone. Only ever runs when explicitly asked
+        (this button, or the update entity's own refresh) - never
+        automatically at setup or on a poll - since it's the one command
+        in this whole integration that causes the device itself to reach
+        out to PowerShades' cloud.
+        """
+        try:
+            reply = await self.connection.async_request(
+                OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD
+            )
+        except PowerShadesTimeoutError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="update_check_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            ) from err
+        result = parse_cloud_update_reply(reply)
+        if result is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="update_check_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            )
+        self.latest_firmware_version = str(result.result)
+        self.async_update_listeners()
+        _LOGGER.info(
+            "Latest firmware reported for %s: %s",
+            self.ip_address,
+            self.latest_firmware_version,
+        )
+
+    async def async_install_update(self) -> None:
+        """Trigger the device to install the latest firmware from its
+        own cloud dashboard (op 0x44, flag 2).
+
+        Re-reads server_hostname fresh (via Get Serial Number) right
+        before checking it, rather than trusting whatever was cached at
+        setup - that setting (op 0x0B, unauthenticated) controls where
+        this op actually connects, and it could have been changed at any
+        point after setup finished. A timeout on that fresh read falls
+        back to the last known value instead of blocking on an unrelated
+        connectivity hiccup. Refuses outright if the result isn't
+        PowerShades' own domain: this is a hard block, not a warning that
+        can be clicked through, since there's nothing safe to fix from
+        inside HA (Set Server Hostname isn't implemented here) - the
+        repair issue _async_check_server_hostname raises at setup is the
+        proactive half of this, this is the point-of-use backstop. A
+        None server_hostname (never configured, or every read so far has
+        failed) doesn't block - that's the vendor's own default, not
+        evidence of tampering.
+
+        The vendor app's own trigger button doesn't wait for or read a
+        reply at all - but every other command in this integration is
+        acknowledged the same way (_async_command), so this still awaits
+        that ack rather than assuming success blind. If this op turns
+        out not to send one on real hardware, that will surface as a
+        clear failure here rather than as a silent no-op.
+        """
+        try:
+            serial_reply = await self.connection.async_request(OP_GET_SERIAL)
+        except PowerShadesTimeoutError:
+            serial_reply = None
+        parsed = parse_serial_reply(serial_reply) if serial_reply else None
+        if parsed is not None:
+            self.server_hostname = parsed["server_hostname"]
+        if self.server_hostname and self.server_hostname != TRUSTED_SERVER_HOSTNAME:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="untrusted_server_hostname_blocked",
+                translation_placeholders={
+                    "ip_address": self.ip_address,
+                    "hostname": self.server_hostname,
+                },
+            )
+        await self._async_command(OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD)
+        _LOGGER.info("Triggered firmware install for %s", self.ip_address)

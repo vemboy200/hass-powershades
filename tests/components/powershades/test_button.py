@@ -4,9 +4,11 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pyowershades import (
+    CLOUD_UPDATE_CHECK_PAYLOAD,
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_CLEAR_LIMITS,
+    OP_CLOUD_UPDATE,
     OP_INDICATE,
     OP_JOG_DOWN,
     OP_JOG_UP,
@@ -34,6 +36,7 @@ from pyowershades import (
         ("step_down", (OP_STEP_DOWN, b"")),
         ("reboot", (OP_REBOOT, b"")),
         ("save_limits", (OP_SAVE_LIMITS, b"")),
+        ("check_for_updates", (OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD)),
     ],
 )
 async def test_button_press_sends_command(
@@ -101,6 +104,36 @@ async def test_jog_step_buttons_enabled_by_default(
 
     assert entry is not None
     assert not entry.disabled
+
+
+async def test_check_for_updates_enabled_by_default(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """Check for Updates is a safe, read-only cloud query, so it's
+    enabled by default like reboot/identify."""
+    registry = er.async_get(hass)
+    entry = registry.async_get("button.powershade_bedroom_shade_check_for_updates")
+
+    assert entry is not None
+    assert not entry.disabled
+
+
+async def test_check_for_updates_stores_latest_version(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """Pressing Check for Updates records the reported latest firmware
+    revision on the coordinator."""
+    coordinator = config_entry.runtime_data
+    assert coordinator.latest_firmware_version is None
+
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": "button.powershade_bedroom_shade_check_for_updates"},
+        blocking=True,
+    )
+
+    assert coordinator.latest_firmware_version == "100"
 
 
 async def test_button_unique_ids(hass: HomeAssistant, config_entry) -> None:

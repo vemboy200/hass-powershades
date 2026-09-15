@@ -106,26 +106,48 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
         motor_state = self.coordinator.data.motor_state
         return motor_state is not None and motor_state >= 10
 
-    async def _async_apply_speed(self, kwargs: dict[str, Any]) -> None:
+    async def _async_apply_speed(self, kwargs: dict[str, Any]) -> bool:
         """Set the shade's motor speed first, if a speed preset was given.
 
         The base CoverEntity already validates the speed against
         supported_speeds before calling us, so it's guaranteed to be a
-        valid SPEED_PRESETS key here.
+        valid SPEED_PRESETS key here. Returns whether a speed was
+        actually applied, so the caller knows whether a reset afterward
+        is relevant at all.
         """
         speed = kwargs.get(ATTR_SPEED)
-        if speed is not None:
-            await self.coordinator.async_set_motor_speed(SPEED_PRESETS[speed])
+        if speed is None:
+            return False
+        await self.coordinator.async_set_motor_speed(SPEED_PRESETS[speed])
+        return True
+
+    def _maybe_schedule_speed_reset(self, speed_applied: bool) -> None:
+        """Schedule resetting the motor speed once the move finishes.
+
+        Fire-and-forget: waiting for the shade to stop can take as long
+        as its full travel time, and blocking this service call for that
+        long would be wrong. Only relevant if a speed preset was applied
+        this call and the user has opted into Reset Speed After Move.
+        """
+        if not speed_applied or not self.coordinator.reset_speed_after_move:
+            return
+        self.hass.async_create_task(
+            self.coordinator.async_reset_speed_after_move(
+                self.coordinator.reset_speed_to_percent
+            )
+        )
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
-        await self._async_apply_speed(kwargs)
+        speed_applied = await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(100)
+        self._maybe_schedule_speed_reset(speed_applied)
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
-        await self._async_apply_speed(kwargs)
+        speed_applied = await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(0)
+        self._maybe_schedule_speed_reset(speed_applied)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover."""
@@ -133,5 +155,6 @@ class PowerShadesCover(PowerShadesEntity, CoverEntity):
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
-        await self._async_apply_speed(kwargs)
+        speed_applied = await self._async_apply_speed(kwargs)
         await self.coordinator.async_set_position(kwargs[ATTR_POSITION])
+        self._maybe_schedule_speed_reset(speed_applied)

@@ -13,15 +13,16 @@ PoE Powershades do not come with a remote, so controlling them without a smart d
 ## Features
 
 - **Cover Platform**: Control blinds as Home Assistant covers (open, close, set position, stop), with a real motor-reported opening/closing state, plus a Slow/Medium/Fast `speed` option on open/close/set position (Gen 1 only)
-- **Button Platform**: Buttons for toggling, identifying, rebooting, and limit calibration (jog, step, set/clear limits, save limits)
+- **Button Platform**: Buttons for toggling, identifying, rebooting, limit calibration (jog, step, set/clear limits, save limits), and checking for firmware updates
+- **Update Platform**: A Firmware update entity showing the installed version and the latest version last reported by the Check for Updates button, and letting you trigger an install
 - **Sensor Platform**: Diagnostic battery percentage and voltage sensors (disabled by default), an LED color sensor (off/green/red/yellow) reflecting the shade's status LEDs, an Error sensor decoding the shade's logged error codes, Current RPM/Motor Power sensors (disabled by default) for live motor telemetry while moving, and a Desired RPM sensor (disabled by default, Gen 2 only)
 - **Binary Sensor Platform**: Motor Awake and Charging diagnostic sensors
-- **Number Platform**: A settable Speed (40-100%, enabled by default), for the shade's motor speed
-- **Switch Platform**: Allow Cloud Connection (disabled by default), controlling whether the shade may connect to PowerShades' own cloud dashboard
+- **Number Platform**: A settable Speed (40-100%, enabled by default), for the shade's motor speed, and a Reset Speed To number (40-100%, enabled by default, Gen 1 only) controlling what the speed-carrying cover moves reset back to
+- **Switch Platform**: Allow Cloud Connection (disabled by default), controlling whether the shade may connect to PowerShades' own cloud dashboard, and Reset Speed After Move (enabled by default, Gen 1 only), controlling whether the cover's Slow/Medium/Fast speed presets are automatically reset back afterward instead of sticking
 - **Services**: `powershades.set_shade_name`, for renaming a shade
 - **UDP Communication**: Direct UDP communication with PowerShades controllers
 - **Config Flow**: Easy setup through Home Assistant's UI, with automatic and DHCP discovery
-- **Local Control**: No cloud dependencies, works entirely locally
+- **Local Control**: No cloud dependencies for normal operation - the one exception is Check for Updates/the Firmware update entity, which ask the shade itself to reach out to PowerShades' own cloud dashboard on your behalf
 
 ## Prerequisites
 
@@ -89,6 +90,7 @@ Each shade also gets buttons for:
 - **Identify**: Makes the shade motor wiggle so you can tell which physical shade this is (under Diagnostic)
 - **Reboot**: Restarts the shade's controller (under Diagnostic)
 - **Jog Up/Down, Set Upper/Lower Limit, Clear Limits, Step Up/Down, Save Limits**: Limit calibration tools (under the device's Configuration section). Typical workflow: jog near the desired position, step to fine-tune, set the limit, then save it so it persists to the device's flash storage. Set Upper/Lower Limit, Clear Limits, and Save Limits are disabled by default - enable them from the device page when you actually need to recalibrate - since an accidental press (e.g. Clear Limits, or Set Upper/Lower Limit while the shade isn't at the right physical position) can miscalibrate the shade's travel range and isn't easily undone. Jog and Step stay enabled since they're reversible (jog/step the other way undoes them).
+- **Check for Updates**: Asks the shade to check its own cloud dashboard for newer firmware (under Diagnostic) - see Firmware Updates below.
 
 ### Diagnostic Entities
 
@@ -110,13 +112,25 @@ Two more diagnostic binary sensors are also available. **Motor Awake** (enabled 
 
 The cover entity also supports a Slow/Medium/Fast `speed` option (40%/70%/100%) on `cover.open_cover`, `cover.close_cover`, and `cover.set_cover_position`, using Home Assistant's built-in [cover speed feature](https://github.com/home-assistant/architecture/discussions/789) - the shade's speed is set to match right before the move. This only appears on **Gen 1** hardware, for the same reason as the Speed number above, and requires **Home Assistant 2026.10 or later** (`hacs.json` declares this minimum version for HACS installs; there's no equivalent check for a manual install on an older core - the entity would just fail to reference `CoverEntityFeature.SPEED` on setup in that case).
 
-Setting a speed hasn't been verified against real hardware yet - the Gen 1 payload is built entirely from the decompiled vendor app, not a real capture of an actual speed change.
+Unlike some other integrations' equivalent of this feature, the shade's motor speed is a persistent device setting, not something scoped to a single move - so a speed-carrying move otherwise leaves every later move (manual switch, the official app, another automation without a `speed` argument) running at whatever preset was last used. Two more entities (Gen 1 only, same as above) let you control that: **Reset Speed After Move** (Switch platform, enabled by default) and **Reset Speed To** (Number platform, 40-100%, enabled by default, seeded from the current Speed value at setup). With the switch on, once a speed-carrying move actually finishes - detected by polling Debug Info more tightly than the normal 10-second cycle until the motor reports idle and the position stops changing - the speed is set back to the Reset Speed To value. If the shade never reports idle within 2 minutes, the reset is skipped and the preset speed is left as-is rather than guessing; if Home Assistant restarts mid-move, the same thing happens, since there's nothing to resume the wait after a restart.
+
+Setting a speed, and the reset-after-move behavior above, haven't been verified against real hardware yet - the Gen 1 payload is built entirely from the decompiled vendor app, not a real capture of an actual speed change.
 
 ### Switches
 
 **Allow Cloud Connection** (disabled by default — enable from the device page) controls whether the shade's own TCP connection to PowerShades' cloud dashboard is allowed. Turning it off doesn't affect local control through this integration at all - it only blocks the shade's separate outbound connection. This reads and writes the device's Feature Disables register directly, preserving every other bit in that register so it doesn't undo any other setting you've configured through the official app.
 
 This is unverified against real hardware behavior (only confirmed from the vendor's own decompiled source, like most things not yet wire-tested) - see [pyowershades' docs/KNOWN_BEHAVIORS.md](https://github.com/vemboy200/Pyowershades/blob/main/docs/KNOWN_BEHAVIORS.md) for the open investigation this entity exists to help with.
+
+### Firmware Updates
+
+This is the "the shade fetches it from PowerShades' own cloud" kind of firmware update, not the "upload a firmware file yourself" kind - this integration never handles firmware bytes directly. Pressing **Check for Updates** (Button platform, enabled by default) asks the shade to query its own cloud dashboard and reports back a revision number, shown as the **Firmware** update entity's latest version; the entity's installed version is the same active-bank revision already shown on the device info page. Pressing Install on the update entity asks the shade to fetch and install that firmware itself - this integration doesn't transfer any firmware data.
+
+Two things about this are unconfirmed, not just unverified, because the vendor's own app never needed to answer them: whether the "latest version" number is even on the same numeric scale as the installed version (the app only ever displays it to a human, never compares the two), and whether an install actually in progress is reliably reflected by the update entity's `in_progress` state - that's inferred from a `TCP_Firmware_Update` entry in the shade's general event log, which also logs unrelated events (stalls, reboots, CRC mismatches), so it's a best-effort signal, not a confirmed one. Until verified, a version mismatch shown here should be treated as "worth checking on PowerShades' own app," not as certain proof an update is waiting.
+
+Checking for updates and installing are the only things in this integration that cause the shade itself to talk to PowerShades' cloud - see Local Control in Features above.
+
+**Server hostname safety check.** Which server those two actions actually connect to is itself a device setting (Server Hostname, PowerShades' own protocol) with no authentication protecting it - anyone on your network could redirect it. On every setup, this integration reads that setting back (via Get Serial Number) and compares it against PowerShades' real domain (`dashboard.powershades.com`); if it doesn't match, a Critical repair issue appears in Settings → Repairs explaining the mismatch. Separately, every time you press **Install** on the Firmware update entity, it re-reads that setting fresh (rather than trusting whatever was seen at setup) and refuses to proceed if it isn't PowerShades' own domain - so a redirect that happens after setup, before the repair issue is next refreshed, still gets caught right at the moment it would matter. This is a hard block, not a warning you can click through, since there's nothing this integration can fix on your behalf (Set Server Hostname isn't implemented here). Checking for updates still works either way, but treat its result as untrustworthy until the repair issue is resolved. A hostname that was never configured at all (empty), or a fresh read that times out, is treated as the vendor's own default rather than evidence of tampering, and doesn't block anything.
 
 ### Services
 
@@ -131,6 +145,8 @@ Push data is sent every 10 seconds so updates are not instant
 - The shade must be on the same network subnet as Home Assistant, or UDP broadcast traffic must be routed between subnets.
 - Only PoE Shades are fully supported, so it is recommened that you connect your RF Powershades to Home Assistant using a Bond Bridge, and report what went wrong when adding your Powershades RF bridge.
 - The Allow Cloud Connection switch only reads the device's Feature Disables setting at setup and right after you toggle it - not on every poll. If something other than this integration changes it (the official app, another controller, etc.), the switch can show a stale value until you toggle it again or reload the integration.
+- Reset Speed After Move waits up to 2 minutes for the shade to report idle before resetting the speed; if Home Assistant restarts during that wait, the reset doesn't happen and the speed stays at whatever preset was last used until the next speed-carrying move overwrites it.
+- The Firmware update entity's "update available" comparison is only as good as whether the shade's cloud dashboard reports a revision number on the same scale as the installed one - unconfirmed either way (see Firmware Updates above). Don't treat it as a reliable "you're up to date" signal yet.
 
 ### Data Updates
 
@@ -143,7 +159,7 @@ Home Assistant's `iot_class` manifest field only allows a single value, and this
 
 The cover's "Opening"/"Closing"/"Open"/"Closed" state is read directly from the device rather than guessed: `is_closed` comes straight from the reported position (0%), and the opening/closing indication comes from the shade's own `motor_state` field (idle, moving up, or moving down) obtained via Get Debug Info — no heuristic or position-delta guessing is involved.
 
-All communication is local and the data does not leave your house, which is kind of weird considering that in the offical Powershades app, all data goes through their cloud. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
+All communication between Home Assistant and the shade is local and doesn't leave your house, which is kind of weird considering that in the official Powershades app, all data goes through their cloud. The one exception is Check for Updates and installing a firmware update (see Firmware Updates above) - those explicitly ask the shade itself to reach out to PowerShades' cloud, so they only happen if you press one of those buttons. The device will work without an internet connection in the short term. It is unknown how the device will behave without an internet connection long term.
 
 ### Automation Examples
 

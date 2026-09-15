@@ -6,9 +6,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pyowershades import (
     DISABLE_TCP_CLOUD,
+    OP_CLOUD_UPDATE,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
+    OP_GET_SERIAL,
     OP_GET_SHADE_NAME,
     OP_GET_STATUS,
     OP_POE_MOTOR_PARAMS,
@@ -17,7 +19,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.powershades.const import DOMAIN
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
 
 TEST_IP = "192.168.1.50"
 TEST_SERIAL = 12345
@@ -209,6 +211,36 @@ def motor_params_packet(
     return build_packet(OP_POE_MOTOR_PARAMS, payload=payload)
 
 
+def serial_packet(
+    *,
+    model: int = 1,
+    direction: int = 0,
+    serial: int = TEST_SERIAL,
+    dhcp_enabled: bool = False,
+    server_hostname: str = "",
+) -> bytes:
+    """Build a Get Serial Number reply packet (op 0x00)."""
+    payload = struct.pack(
+        "<BBBBIIB",
+        model,
+        0,
+        0,
+        direction,
+        serial & 0xFFFFFFFF,
+        (serial >> 32) & 0xFFFFFFFF,
+        int(dhcp_enabled),
+    )
+    payload += b"\x00" * 4  # unconfirmed field between DhcpEnabled and IP
+    payload += b"\x00" * 12  # IP, Subnet, Gateway
+    payload += server_hostname.encode("ascii").ljust(50, b"\x00")[:50]
+    return build_packet(OP_GET_SERIAL, payload=payload)
+
+
+def cloud_update_packet(*, result: int = 100) -> bytes:
+    """Build a Cloud Update Check/Trigger reply packet (op 0x44)."""
+    return build_packet(OP_CLOUD_UPDATE, payload=struct.pack("<I", result))
+
+
 @pytest.fixture
 def mock_connection():
     """Mock the UDP connection so setup never touches real sockets."""
@@ -226,6 +258,10 @@ def mock_connection():
             return disables_packet()
         if op == OP_POE_MOTOR_PARAMS:
             return motor_params_packet()
+        if op == OP_CLOUD_UPDATE:
+            return cloud_update_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAME)
         return build_packet(op)
 
     with (

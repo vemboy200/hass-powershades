@@ -81,9 +81,18 @@ rules:
   comment: |
     tests cover the config flow, coordinator (polling, push updates, real motor state
     refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
-    speed set), protocol parsing/building, and the cover (including the Gen 1
-    speed presets), button, sensor (including the Gen 2-only desired RPM sensor's
-    conditional creation), binary_sensor, switch and number platforms
+    speed set, the tight-poll wait-for-stop loop and its timeout, Cloud Update
+    Check/Trigger, the untrusted-server-hostname hard block on install), protocol
+    parsing/building, and the cover (including the Gen 1 speed presets and the
+    end-to-end reset-after-move wiring), button (including Check for Updates),
+    sensor (including the Gen 2-only desired RPM sensor's conditional creation),
+    binary_sensor, switch (including the Gen 1-only Reset Speed After Move
+    switch's RestoreEntity behavior), number (including the Gen 1-only Reset
+    Speed To number's RestoreNumber/seeding behavior), update (installed/latest
+    version wiring, the version-mismatch/no-update states, the best-effort
+    in_progress signal, and install triggering the device) platforms, and
+    __init__.py's setup/unload flow (RF Gateway and untrusted-server-hostname
+    repair issues created and cleared correctly)
 
   # Gold
   devices: done
@@ -122,20 +131,27 @@ rules:
   entity-category: done
   comment: |
     diagnostic sensors (battery, voltage, LED color, error, current RPM, motor power)
-    and binary sensors (motor awake, charging), diagnostic buttons (identify, reboot),
-    config buttons (toggle, jog/limit tools), and the config switch (allow cloud
-    connection) use entity_category appropriately. The Speed number entity is
-    deliberately uncategorized (Control) rather than Configuration - it's meant for
-    active, day-to-day use (e.g. automations), not a rarely-touched setting. The
-    cover's Slow/Medium/Fast speed option (CoverEntityFeature.SPEED, Gen 1 only)
-    isn't a separate entity, so entity_category doesn't apply to it
+    and binary sensors (motor awake, charging), diagnostic buttons (identify, reboot,
+    check for updates), config buttons (toggle, jog/limit tools), and the config
+    switches/numbers (allow cloud connection, reset speed after move, reset speed to)
+    use entity_category appropriately. The Speed number entity is deliberately
+    uncategorized (Control) rather than Configuration - it's meant for active,
+    day-to-day use (e.g. automations), not a rarely-touched setting. The cover's
+    Slow/Medium/Fast speed option (CoverEntityFeature.SPEED, Gen 1 only) isn't a
+    separate entity, so entity_category doesn't apply to it. Reset Speed After Move
+    and Reset Speed To ARE Configuration, unlike Speed - they're one-time preferences
+    about how the speed-preset feature behaves, not something touched on every use.
+    The update entity is intentionally uncategorized too, matching every other update
+    entity in HA core - update is its own top-level domain, not something that gets
+    tucked under Diagnostic/Configuration
   entity-device-class: done
   comment: |
     battery sensor uses SensorDeviceClass.BATTERY, voltage sensor uses SensorDeviceClass.VOLTAGE,
     the LED color and error sensors use SensorDeviceClass.ENUM, the charging binary sensor uses
     BinarySensorDeviceClass.BATTERY_CHARGING (motor awake has no device_class - it reflects a
     power-management state, not motion, and no class fits that honestly), cover uses
-    CoverDeviceClass.SHADE, and the reboot button uses ButtonDeviceClass.RESTART
+    CoverDeviceClass.SHADE, the reboot button uses ButtonDeviceClass.RESTART, the check-for-updates
+    button uses ButtonDeviceClass.UPDATE, and the update entity uses UpdateDeviceClass.FIRMWARE
   entity-disabled-by-default: done
   comment: |
     battery, voltage, charging, current RPM, motor power and desired RPM sensors, and
@@ -149,12 +165,18 @@ rules:
     The Speed number entity is deliberately enabled by default instead - it's meant for
     active use (e.g. slower for nighttime automations, faster for manual use), not a
     rarely-touched setting, even though setting it is admin-gated and unverified
-    against real hardware
+    against real hardware. Reset Speed After Move and Reset Speed To (Gen 1 only,
+    same restriction as the cover's speed presets) are also enabled by default -
+    they're how a user discovers and controls the reset-after-move behavior at all,
+    so hiding them by default would defeat the point. Check for Updates and the
+    firmware update entity are also enabled by default - checking is a safe, read-only
+    cloud query (not admin-gated, and the device does its own fetch), so there's no
+    accidental-miscalibration-style risk the way there is for the limit buttons
   entity-translations: done
   comment: |
-    button, sensor, binary_sensor, switch and number entities use translation_key with
-    names (and, for the enum LED color/error sensors, per-state names) defined under
-    entity.button/entity.sensor/entity.binary_sensor/entity.switch/entity.number in
+    button, sensor, binary_sensor, switch, number and update entities use translation_key
+    with names (and, for the enum LED color/error sensors, per-state names) defined under
+    entity.button/entity.sensor/entity.binary_sensor/entity.switch/entity.number/entity.update in
     strings.json/translations. The cover entity also uses translation_key ("cover") to
     provide per-state names for its Slow/Medium/Fast speed capability attribute, under
     entity.cover.cover.state_attributes.speed.state
@@ -178,7 +200,14 @@ rules:
     user needs to act on; a non-fixable warning repair issue is created (and
     cleared on unload) if the device identifies as an RF Gateway rather than a
     PoE Shade instead, since this integration is only built and tested against
-    PoE shades and that's a persistent fact worth surfacing
+    PoE shades and that's a persistent fact worth surfacing. A non-fixable
+    critical repair issue is also created (and cleared on unload) if the
+    device's Server Hostname setting isn't PowerShades' own domain - checked
+    at every setup via Get Serial Number's server_hostname field, independent
+    of whether Check for Updates/Install has ever been used. There's nothing
+    fixable from inside HA (Set Server Hostname isn't implemented), so this is
+    informational like the RF Gateway issue, backed up by a hard block in
+    async_install_update itself as the actual enforcement point
   stale-devices: exempt
   comment: |
     single device per config entry, nothing to go stale independently
