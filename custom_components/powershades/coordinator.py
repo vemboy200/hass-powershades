@@ -277,10 +277,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                 translation_key="update_malformed_reply",
                 translation_placeholders={"ip_address": self.ip_address},
             )
-        data = self._data_from_debug_info(debug_info)
-        # Poll faster while the position is unknown
-        self.update_interval = timedelta(seconds=5 if data.position is None else 10)
-        return data
+        return self._data_from_debug_info(debug_info)
 
     async def _async_wait_for_stop(self) -> bool:
         """Poll Debug Info at a tight interval until the shade goes idle.

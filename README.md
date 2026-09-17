@@ -151,7 +151,7 @@ Push data is sent every 10 seconds so updates are not instant
 
 ### Data Updates
 
-The shade pushes its status to Home Assistant in real time whenever Home Assistant is the one controlling it (the "UDP subscriber"). On top of that, Home Assistant polls the shade every 10 seconds (every 5 seconds while the position is unknown) so that changes made by another controller — such as the PowerShades app or a Control4 system — are also picked up. Each poll cycle also makes a second, best-effort request (Get Debug Info) for the Green LED state and the real motor state used by the cover's opening/closing indication; if that second request times out the rest of the update still succeeds, just without refreshing those two values.
+The shade pushes its status to Home Assistant in real time whenever Home Assistant is the one controlling it (the "UDP subscriber"). On top of that, Home Assistant polls the shade every 10 seconds so that changes made by another controller — such as the PowerShades app or a Control4 system — are also picked up. Each poll cycle also makes a second, best-effort request (Get Debug Info) for the Green LED state and the real motor state used by the cover's opening/closing indication; if that second request times out the rest of the update still succeeds, just without refreshing those two values.
 
 Home Assistant's `iot_class` manifest field only allows a single value, and this integration declares `local_push`. In practice though, its behavior has something in common with both of Home Assistant's local classifiers:
 
