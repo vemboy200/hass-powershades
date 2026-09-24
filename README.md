@@ -214,6 +214,7 @@ mode: single
 ### Cover entity shows as unavailable 
 - This means that Home Assistant could not communicate to the shade, make sure home assistant can access port 42 on your shade, and that UDP broadcasts can be routed between different subnets if needed.
 - It could also mean that your shade is not connected to your local network
+- If it's only unavailable for anywhere from 10 seconds to a couple of minutes and then recovers on its own, that comes from the shade itself, not your network or Home Assistant. The shade briefly stops responding to local commands, then recovers at the same moment its green status LED lights up - you can see this by enabling the LED Color sensor (disabled by default) and comparing its history with the cover's. This is believed to be related to the shade's own connection to PowerShades' cloud dashboard. See [pyowershades' known behaviors](https://github.com/vemboy200/Pyowershades/blob/main/docs/KNOWN_BEHAVIORS.md) for the details.
 ### HACS Installation Issues
 
 If you encounter errors when installing via HACS:
