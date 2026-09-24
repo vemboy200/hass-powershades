@@ -95,6 +95,41 @@ def test_data_from_status_carries_forward_debug_info(coordinator) -> None:
     assert data.error_list == [9, 21]
 
 
+@pytest.mark.parametrize(
+    ("position", "motor_state", "expected"),
+    [
+        (0, 12, 0),  # closing, already fully closed -> stopped
+        (100, 2, 0),  # opening, already fully open -> stopped
+        (0, 2, 2),  # opening away from closed is real movement
+        (100, 12, 12),  # closing away from open is real movement
+        (50, 12, 12),  # mid-travel is left alone
+    ],
+)
+def test_data_from_status_settles_motor_state_at_limit(
+    coordinator, position: int, motor_state: int, expected: int
+) -> None:
+    """A push reaching a limit clears the stale carried-forward
+    motor_state rather than showing the cover still moving until the
+    next poll."""
+    coordinator.async_set_updated_data(
+        coordinator_module.PowerShadesData(motor_state=motor_state)
+    )
+    data = coordinator._data_from_status(
+        StatusReply(position=position, battery_mv=3700)
+    )
+    assert data.motor_state == expected
+
+
+async def test_async_update_data_settles_motor_state_at_limit(coordinator) -> None:
+    """A poll still reporting closing at 0% is treated as stopped."""
+    coordinator.connection.async_request = AsyncMock(
+        return_value=debug_info_packet(motor_state=12, current_percent=0)
+    )
+    data = await coordinator._async_update_data()
+    assert data.position == 0
+    assert data.motor_state == 0
+
+
 async def test_async_set_position_sends_command(coordinator) -> None:
     """Setting a position sends a Set Position command."""
     await coordinator.async_set_position(75)

@@ -71,10 +71,29 @@ type PowerShadesConfigEntry = ConfigEntry[PowerShadesCoordinator]
 
 # How often to poll Debug Info while waiting for a speed-carrying move to
 # finish, and how long to wait before giving up. Tighter than the normal
-# 10s/5s poll cycle on purpose - the speed reset should follow the actual
+# 10s poll cycle on purpose - the speed reset should follow the actual
 # stop closely, not lag behind by up to a full poll interval.
 _RESET_SPEED_POLL_INTERVAL = 2
 _RESET_SPEED_MAX_WAIT = 120
+
+
+def _settle_motor_state(position: int | None, motor_state: int | None) -> int | None:
+    """Treat a move toward a limit the shade is already at as stopped.
+
+    motor_state is direction*10 + phase (1-9 = moving up, 10+ = moving
+    down). The shade keeps reporting it as moving for a moment after it
+    reaches 0%/100%, and status pushes carry the last polled value
+    forward, so without this the cover shows closing at 0% or opening at
+    100% until the next poll. A shade can't move further past its limit,
+    so that combination always means it has stopped.
+    """
+    if motor_state is None or position is None:
+        return motor_state
+    if (position == 0 and motor_state >= 10) or (
+        position == 100 and 0 < motor_state < 10
+    ):
+        return 0
+    return motor_state
 
 
 @dataclass(frozen=True)
@@ -206,7 +225,10 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_red_led=self.data.io_red_led if self.data is not None else None,
             io_motor_sleep=self.data.io_motor_sleep if self.data is not None else None,
             io_poe_status=self.data.io_poe_status if self.data is not None else None,
-            motor_state=self.data.motor_state if self.data is not None else None,
+            motor_state=_settle_motor_state(
+                status.position,
+                self.data.motor_state if self.data is not None else None,
+            ),
             error_list=self.data.error_list if self.data is not None else [],
             velocity_rpm=self.data.velocity_rpm if self.data is not None else None,
             desired_rpm=self.data.desired_rpm if self.data is not None else None,
@@ -243,7 +265,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             io_red_led=debug_info.io_red_led,
             io_motor_sleep=debug_info.io_motor_sleep,
             io_poe_status=debug_info.io_poe_status,
-            motor_state=debug_info.motor_state,
+            motor_state=_settle_motor_state(position, debug_info.motor_state),
             error_list=debug_info.error_list,
             velocity_rpm=debug_info.velocity_rpm,
             desired_rpm=debug_info.desired_rpm,
@@ -303,7 +325,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             if debug_info is not None:
                 data = self._data_from_debug_info(debug_info)
                 self.async_set_updated_data(data)
-                if not debug_info.motor_state and data.position == last_position:
+                if not data.motor_state and data.position == last_position:
                     return True
                 last_position = data.position
             await asyncio.sleep(_RESET_SPEED_POLL_INTERVAL)
