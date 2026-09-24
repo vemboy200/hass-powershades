@@ -107,6 +107,7 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=LED_COLOR_OPTIONS,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=_led_color,
         icon_fn=lambda data: (
             "mdi:led-outline" if _led_color(data) in (None, "off") else "mdi:led-on"

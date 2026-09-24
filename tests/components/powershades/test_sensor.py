@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pyowershades import (
@@ -33,6 +34,15 @@ RPM_POWER_ENTITY_IDS = (
     "sensor.powershade_bedroom_shade_motor_power",
 )
 DESIRED_RPM_ENTITY_ID = "sensor.powershade_bedroom_shade_desired_rpm"
+
+
+@pytest.fixture
+async def led_color_enabled(hass: HomeAssistant, config_entry):
+    """Enable the (disabled by default) LED color sensor and reload."""
+    er.async_get(hass).async_update_entity(LED_COLOR_ENTITY_ID, disabled_by=None)
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    return config_entry
 
 
 async def test_sensors_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
@@ -67,25 +77,25 @@ async def test_sensor_values_when_enabled(hass: HomeAssistant, config_entry) -> 
     assert battery_state.state == str(battery_percentage(3700))
 
 
-async def test_led_color_enabled_by_default(hass: HomeAssistant, config_entry) -> None:
-    """The LED color sensor is enabled by default, unlike battery/voltage."""
+async def test_led_color_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
+    """The LED color sensor is disabled by default, like battery/voltage."""
     registry = er.async_get(hass)
     entry = registry.async_get(LED_COLOR_ENTITY_ID)
 
     assert entry is not None
-    assert not entry.disabled
+    assert entry.disabled
 
 
-async def test_led_color_off_by_default(hass: HomeAssistant, config_entry) -> None:
+async def test_led_color_off_by_default(hass: HomeAssistant, led_color_enabled) -> None:
     """With both LEDs off, the sensor reports off with the outline icon."""
     state = hass.states.get(LED_COLOR_ENTITY_ID)
     assert state.state == "off"
     assert state.attributes["icon"] == "mdi:led-outline"
 
 
-async def test_led_color_green(hass: HomeAssistant, config_entry) -> None:
+async def test_led_color_green(hass: HomeAssistant, led_color_enabled) -> None:
     """Only the green LED on reports green."""
-    coordinator = config_entry.runtime_data
+    coordinator = led_color_enabled.runtime_data
     coordinator.async_set_updated_data(
         coordinator_module.PowerShadesData(io_green_led=True, io_red_led=False)
     )
@@ -96,9 +106,9 @@ async def test_led_color_green(hass: HomeAssistant, config_entry) -> None:
     assert state.attributes["icon"] == "mdi:led-on"
 
 
-async def test_led_color_red(hass: HomeAssistant, config_entry) -> None:
+async def test_led_color_red(hass: HomeAssistant, led_color_enabled) -> None:
     """Only the red LED on reports red."""
-    coordinator = config_entry.runtime_data
+    coordinator = led_color_enabled.runtime_data
     coordinator.async_set_updated_data(
         coordinator_module.PowerShadesData(io_green_led=False, io_red_led=True)
     )
@@ -108,9 +118,9 @@ async def test_led_color_red(hass: HomeAssistant, config_entry) -> None:
     assert state.state == "red"
 
 
-async def test_led_color_yellow(hass: HomeAssistant, config_entry) -> None:
+async def test_led_color_yellow(hass: HomeAssistant, led_color_enabled) -> None:
     """Both LEDs on together report yellow."""
-    coordinator = config_entry.runtime_data
+    coordinator = led_color_enabled.runtime_data
     coordinator.async_set_updated_data(
         coordinator_module.PowerShadesData(io_green_led=True, io_red_led=True)
     )
@@ -121,7 +131,7 @@ async def test_led_color_yellow(hass: HomeAssistant, config_entry) -> None:
 
 
 async def test_error_enabled_by_default(hass: HomeAssistant, config_entry) -> None:
-    """The error sensor is enabled by default, like LED color."""
+    """The error sensor is enabled by default."""
     registry = er.async_get(hass)
     entry = registry.async_get(ERROR_ENTITY_ID)
 

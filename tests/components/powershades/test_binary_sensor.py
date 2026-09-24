@@ -9,15 +9,15 @@ MOTOR_AWAKE_ENTITY_ID = "binary_sensor.powershade_bedroom_shade_motor_awake"
 CHARGING_ENTITY_ID = "binary_sensor.powershade_bedroom_shade_charging"
 
 
-async def test_motor_awake_enabled_by_default(
+async def test_motor_awake_disabled_by_default(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Motor Awake is enabled by default."""
+    """Motor Awake is disabled by default - most users only need the cover."""
     registry = er.async_get(hass)
     entry = registry.async_get(MOTOR_AWAKE_ENTITY_ID)
 
     assert entry is not None
-    assert not entry.disabled
+    assert entry.disabled
 
 
 async def test_charging_disabled_by_default(hass: HomeAssistant, config_entry) -> None:
@@ -34,6 +34,10 @@ async def test_motor_awake_reflects_sleep_state(
 ) -> None:
     """Motor Awake mirrors io_motor_sleep directly - the pin is active-low,
     so 1 means the H-bridge is powered, not asleep."""
+    registry = er.async_get(hass)
+    registry.async_update_entity(MOTOR_AWAKE_ENTITY_ID, disabled_by=None)
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
     coordinator = config_entry.runtime_data
 
     coordinator.async_set_updated_data(

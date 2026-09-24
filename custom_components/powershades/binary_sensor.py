@@ -39,6 +39,7 @@ BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
         key="motor_awake",
         translation_key="motor_awake",
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         # Despite its name, IO_Motor_Sleep is an active-low sleep pin: the
         # official Config.NET app labels it "H-Bridge Power" and shows it
         # green when it reads 1, and on real hardware it reads 1 while the
