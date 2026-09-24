@@ -39,16 +39,12 @@ BINARY_SENSORS: tuple[PowerShadesBinarySensorDescription, ...] = (
         key="motor_awake",
         translation_key="motor_awake",
         entity_category=EntityCategory.DIAGNOSTIC,
-        # This is a power-management state of the motor driver electronics
-        # (awake vs. low-power sleep after inactivity), not a live-motion
-        # indicator - the shade can be fully idle and still "awake" simply
-        # from having been recently polled or commanded. Actual movement
-        # is motor_state, already used by the cover's opening/closing
-        # state. No device_class fits "awake vs. asleep" honestly, so
-        # this is left generic rather than implying motion.
-        value_fn=lambda data: (
-            None if data.io_motor_sleep is None else not data.io_motor_sleep
-        ),
+        # Despite its name, IO_Motor_Sleep is an active-low sleep pin: the
+        # official Config.NET app labels it "H-Bridge Power" and shows it
+        # green when it reads 1, and on real hardware it reads 1 while the
+        # motor is driving and 0 while idle. So the raw value already means
+        # "awake" and must not be inverted.
+        value_fn=lambda data: data.io_motor_sleep,
     ),
     PowerShadesBinarySensorDescription(
         key="charging",

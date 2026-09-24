@@ -32,17 +32,18 @@ async def test_charging_disabled_by_default(hass: HomeAssistant, config_entry) -
 async def test_motor_awake_reflects_sleep_state(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Motor Awake is the inverse of io_motor_sleep."""
+    """Motor Awake mirrors io_motor_sleep directly - the pin is active-low,
+    so 1 means the H-bridge is powered, not asleep."""
     coordinator = config_entry.runtime_data
 
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(io_motor_sleep=False)
+        coordinator_module.PowerShadesData(io_motor_sleep=True)
     )
     await hass.async_block_till_done()
     assert hass.states.get(MOTOR_AWAKE_ENTITY_ID).state == "on"
 
     coordinator.async_set_updated_data(
-        coordinator_module.PowerShadesData(io_motor_sleep=True)
+        coordinator_module.PowerShadesData(io_motor_sleep=False)
     )
     await hass.async_block_till_done()
     assert hass.states.get(MOTOR_AWAKE_ENTITY_ID).state == "off"
