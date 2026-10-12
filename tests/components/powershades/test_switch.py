@@ -213,6 +213,17 @@ async def test_reset_speed_after_move_not_created_on_gen2(
     assert registry.async_get(RESET_SPEED_AFTER_MOVE_ENTITY_ID) is None
 
 
+async def test_allow_cloud_connection_not_created_on_gen2(
+    hass: HomeAssistant,
+) -> None:
+    """Gen 2 never gets the switch - Feature Disables is unverified there
+    (issue #17)."""
+    await _setup_entry_with_model_version(hass, model_version=2)
+
+    registry = er.async_get(hass)
+    assert registry.async_get(ALLOW_CLOUD_CONNECTION_ENTITY_ID) is None
+
+
 async def test_turn_on_reset_speed_after_move(
     hass: HomeAssistant, config_entry
 ) -> None:

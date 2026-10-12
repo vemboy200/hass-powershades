@@ -76,8 +76,9 @@ async def _async_fetch_serial_info(
 
 
 # model_version from Get Device ID. 0 = Gen 1 is confirmed by the
-# hardware's owner; 2 = Gen 2 is the working hypothesis from the
-# decompile but hasn't been checked against an actual Gen 2 unit.
+# hardware's owner. 2 = Gen 2 comes from Config.NET, which only shows its
+# PoE2 Web Server button (Gen 2 is the one with a web server) when
+# model_version is 2.
 _MODEL_VERSION_NAMES = {
     0: "Gen 1",
     2: "Gen 2",
@@ -218,8 +219,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
 
     await _async_fetch_serial_info(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
-    await coordinator.async_fetch_disables_state()
-    await coordinator.async_fetch_motor_speed()
+    # Feature Disables and motor speed only feed Gen 1-only entities (the
+    # cloud switch and speed controls), so nothing else is sent them. A
+    # Gen 2 shade stopped moving from every control right after these were
+    # sent during setup, until a factory reset (issue #17). Toggling its
+    # cloud switch later read and wrote Feature Disables without breaking
+    # it, which leaves the motor speed read as the main suspect: it carries
+    # no payload, and its first payload byte is what picks get vs. set.
+    if coordinator.hw_version == "Gen 1":
+        await coordinator.async_fetch_disables_state()
+        await coordinator.async_fetch_motor_speed()
     _async_check_rf_gateway(hass, entry, coordinator)
     _async_check_server_hostname(hass, entry, coordinator)
 

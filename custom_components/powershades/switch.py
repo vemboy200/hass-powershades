@@ -23,11 +23,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up PowerShades switches from a config entry."""
     coordinator = entry.runtime_data
-    entities: list[SwitchEntity] = [PowerShadesAllowCloudConnectionSwitch(coordinator)]
-    # The cover's Slow/Medium/Fast speed presets only exist on Gen 1
-    # (see cover.py's supported_speeds), so resetting speed after a move
-    # is meaningless anywhere else.
+    entities: list[SwitchEntity] = []
+    # Both are Gen 1 only. Allow Cloud Connection reads and writes Feature
+    # Disables, which is unverified on Gen 2 (see async_setup_entry and
+    # issue #17). The cover's Slow/Medium/Fast speed presets only exist on
+    # Gen 1 (see cover.py's supported_speeds), so resetting speed after a
+    # move is meaningless anywhere else.
     if coordinator.hw_version == "Gen 1":
+        entities.append(PowerShadesAllowCloudConnectionSwitch(coordinator))
         entities.append(PowerShadesResetSpeedAfterMoveSwitch(coordinator))
     async_add_entities(entities)
 
