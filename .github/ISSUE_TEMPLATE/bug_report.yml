@@ -25,12 +25,17 @@ body:
     id: device-type
     attributes:
       label: Device type
-      description: Check Settings > Devices > your PowerShade device > Model. For a PoE shade, the Hardware line on the same page shows its generation (Gen 1 or Gen 2). Gen 1 and Gen 2 behave differently, so please pick the right one.
+      description: |
+        Check Settings > Devices > your PowerShade device > Model. Gen 1 and Gen 2 behave differently, so please pick the right one.
+        For a PoE shade, the Hardware line on the same page shows its generation.
+        For an RF Gateway, Gen 1 is a black rectangular box with three icons on the front, and Gen 2 is a white, puck-shaped enclosure with a single LED slit.
       options:
         - PoE Shade (Gen 1)
         - PoE Shade (Gen 2)
         - PoE Shade (generation unknown)
-        - RF Gateway / RF-paired shade
+        - RF Gateway / RF-paired shade (Gen 1, black box)
+        - RF Gateway / RF-paired shade (Gen 2, white puck)
+        - RF Gateway / RF-paired shade (generation unknown)
         - Not sure
     validations:
       required: true
