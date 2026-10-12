@@ -452,7 +452,12 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         result = parse_motor_parameters_reply(reply)
         if result is None:
             return
-        self.motor_speed_percent = result.motor_power_up
+        # Gen 2 reports speed in tenths of a percent - Config.NET divides
+        # it by 10 for display there, and shows Gen 1's as-is.
+        if self.hw_version == "Gen 2":
+            self.motor_speed_percent = round(result.motor_power_up / 10)
+        else:
+            self.motor_speed_percent = result.motor_power_up
         self.async_update_listeners()
 
     async def async_set_motor_speed(self, percent: int) -> None:

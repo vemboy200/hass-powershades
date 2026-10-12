@@ -29,6 +29,7 @@ from .conftest import (
     TEST_SERIAL,
     debug_info_packet,
     device_id_packet,
+    motor_params_packet,
     serial_packet,
     status_packet,
 )
@@ -316,8 +317,6 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
             return status_packet()
         if op == OP_GET_DEBUG_INFO:
             return debug_info_packet()
-        if op == OP_GET_DEVICE_ID:
-            return device_id_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
         return build_packet(op)
@@ -425,8 +424,6 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
             return status_packet()
         if op == OP_GET_DEBUG_INFO:
             return debug_info_packet()
-        if op == OP_GET_DEVICE_ID:
-            return device_id_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
         return build_packet(op)
@@ -453,12 +450,13 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
     assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
 
 
-async def test_setup_entry_skips_gen1_only_reads_on_gen2(
+async def test_setup_entry_gen2_matches_config_net_reads(
     hass: HomeAssistant,
 ) -> None:
-    """A Gen 2 shade only gets what 1.0.0 already sent at setup - no
-    Feature Disables, motor speed or Get Serial (issue #17), and no
-    Server Hostname repair from a reply layout that's unverified there."""
+    """A Gen 2 shade gets the same setup reads Config.NET sends on
+    selecting a shade (including motor speed, scaled from tenths of a
+    percent), but never Feature Disables, which Config.NET doesn't send
+    (issue #17)."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -473,8 +471,8 @@ async def test_setup_entry_skips_gen1_only_reads_on_gen2(
             return debug_info_packet()
         if op == OP_GET_DEVICE_ID:
             return device_id_packet(model_version=2)
-        if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname="evil.example.com")
+        if op == OP_POE_MOTOR_PARAMS:
+            return motor_params_packet(motor_power_up=755)
         return build_packet(op)
 
     request = AsyncMock(side_effect=fake_request)
@@ -486,59 +484,11 @@ async def test_setup_entry_skips_gen1_only_reads_on_gen2(
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    sent_ops = {call.args[0] for call in request.call_args_list}
+    sent_ops = [call.args[0] for call in request.call_args_list]
+    assert OP_GET_SERIAL in sent_ops
+    assert OP_POE_MOTOR_PARAMS in sent_ops
     assert OP_DISABLES not in sent_ops
-    assert OP_POE_MOTOR_PARAMS not in sent_ops
-    assert OP_GET_SERIAL not in sent_ops
 
     coordinator = entry.runtime_data
+    assert coordinator.motor_speed_percent == 76
     assert coordinator.allow_cloud_connection is None
-    assert coordinator.motor_speed_percent is None
-    assert coordinator.server_hostname is None
-
-    issue_registry = ir.async_get(hass)
-    assert (
-        issue_registry.async_get_issue(
-            DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
-        )
-        is None
-    )
-
-
-async def test_setup_entry_gen2_still_fills_in_missing_model(
-    hass: HomeAssistant,
-) -> None:
-    """Get Serial still runs on Gen 2 when the model is missing, same as
-    1.0.0, but its hostname field is ignored there."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME},
-        unique_id=str(TEST_SERIAL),
-    )
-    entry.add_to_hass(hass)
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_GET_STATUS:
-            return status_packet()
-        if op == OP_GET_DEBUG_INFO:
-            return debug_info_packet()
-        if op == OP_GET_DEVICE_ID:
-            return device_id_packet(model_version=2)
-        if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname="evil.example.com")
-        return build_packet(op)
-
-    with (
-        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
-        patch.object(
-            PowerShadesConnection,
-            "async_request",
-            AsyncMock(side_effect=fake_request),
-        ),
-        patch.object(PowerShadesConnection, "close"),
-    ):
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-
-    assert entry.data["model"] is not None
-    assert entry.runtime_data.server_hostname is None
