@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-import voluptuous as vol
+import probatio
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall, callback
@@ -17,7 +17,7 @@ from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_SCHEMA = vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id})
+SERVICE_SCHEMA = probatio.Schema({probatio.Required(ATTR_ENTITY_ID): cv.entity_id})
 
 
 def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> PowerShadesCoordinator:
@@ -65,7 +65,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         "set_shade_name",
         set_shade_name,
-        schema=SERVICE_SCHEMA.extend({vol.Required("name"): cv.string}),
+        schema=SERVICE_SCHEMA.extend({probatio.Required("name"): cv.string}),
     )
 
     async def set_server_hostname(call: ServiceCall) -> None:
@@ -89,5 +89,5 @@ def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         "set_server_hostname",
         set_server_hostname,
-        schema=SERVICE_SCHEMA.extend({vol.Required("hostname"): cv.string}),
+        schema=SERVICE_SCHEMA.extend({probatio.Required("hostname"): cv.string}),
     )

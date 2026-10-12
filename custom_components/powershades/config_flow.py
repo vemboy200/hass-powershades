@@ -6,7 +6,7 @@ import ipaddress
 import logging
 from typing import Any, override
 
-import voluptuous as vol
+import probatio
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.helpers import selector
 from homeassistant.helpers.device_registry import format_mac
@@ -83,9 +83,9 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="pick_device",
-            data_schema=vol.Schema(
+            data_schema=probatio.Schema(
                 {
-                    vol.Required("device"): selector.SelectSelector(
+                    probatio.Required("device"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=options,
                             translation_key="device",
@@ -115,7 +115,7 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="manual",
-            data_schema=vol.Schema({vol.Required("ip"): str}),
+            data_schema=probatio.Schema({probatio.Required("ip"): str}),
             errors=errors,
         )
 
@@ -245,8 +245,8 @@ class PowerShadesConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema(
-                {vol.Required("ip", default=reconfigure_entry.data["ip"]): str}
+            data_schema=probatio.Schema(
+                {probatio.Required("ip", default=reconfigure_entry.data["ip"]): str}
             ),
             errors=errors,
         )
