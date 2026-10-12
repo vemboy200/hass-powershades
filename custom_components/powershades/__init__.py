@@ -217,17 +217,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.runtime_data = coordinator
     entry.async_on_unload(connection.close)
 
-    # Same reads, in the same order, that the vendor's Config.NET app
-    # sends whenever a PoE shade is selected, on every generation.
     await _async_fetch_serial_info(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
-    await coordinator.async_fetch_motor_speed()
-    # Config.NET has a Feature Disables handler but no button wired to it,
-    # so it never actually sends this. It's verified on Gen 1 only, and a
-    # Gen 2 shade broke right after being added when it was sent to every
-    # shade (issue #17).
+    # Feature Disables and motor speed only feed Gen 1-only entities (the
+    # cloud switch and speed controls), so nothing else is sent them. A
+    # Gen 2 shade stopped moving from every control right after these were
+    # sent during setup, until a factory reset (issue #17). Toggling its
+    # cloud switch later read and wrote Feature Disables without breaking
+    # it, which leaves the motor speed read as the main suspect: it carries
+    # no payload, and its first payload byte is what picks get vs. set.
     if coordinator.hw_version == "Gen 1":
         await coordinator.async_fetch_disables_state()
+        await coordinator.async_fetch_motor_speed()
     _async_check_rf_gateway(hass, entry, coordinator)
     _async_check_server_hostname(hass, entry, coordinator)
 

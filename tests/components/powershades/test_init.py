@@ -450,13 +450,11 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
     assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
 
 
-async def test_setup_entry_gen2_matches_config_net_reads(
+async def test_setup_entry_skips_gen1_only_reads_on_gen2(
     hass: HomeAssistant,
 ) -> None:
-    """A Gen 2 shade gets the same setup reads Config.NET sends on
-    selecting a shade (including motor speed, scaled from tenths of a
-    percent), but never Feature Disables, which Config.NET doesn't send
-    (issue #17)."""
+    """A Gen 2 shade never gets the Feature Disables or motor speed reads,
+    which only feed Gen 1-only entities (issue #17)."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -472,7 +470,7 @@ async def test_setup_entry_gen2_matches_config_net_reads(
         if op == OP_GET_DEVICE_ID:
             return device_id_packet(model_version=2)
         if op == OP_POE_MOTOR_PARAMS:
-            return motor_params_packet(motor_power_up=755)
+            return motor_params_packet()
         return build_packet(op)
 
     request = AsyncMock(side_effect=fake_request)
@@ -486,9 +484,9 @@ async def test_setup_entry_gen2_matches_config_net_reads(
 
     sent_ops = [call.args[0] for call in request.call_args_list]
     assert OP_GET_SERIAL in sent_ops
-    assert OP_POE_MOTOR_PARAMS in sent_ops
     assert OP_DISABLES not in sent_ops
+    assert OP_POE_MOTOR_PARAMS not in sent_ops
 
     coordinator = entry.runtime_data
-    assert coordinator.motor_speed_percent == 76
+    assert coordinator.motor_speed_percent is None
     assert coordinator.allow_cloud_connection is None
