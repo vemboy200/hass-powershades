@@ -49,10 +49,11 @@ async def _async_fetch_serial_info(
     predate it being stored) and refreshing server_hostname.
 
     Called right after a successful first refresh, so the device is
-    known reachable. Runs on every setup, not just for legacy entries
-    missing a model - server_hostname needs re-checking every time,
-    since it can change at any point after setup (see
-    _async_check_server_hostname). Best-effort: silently keeps
+    known reachable. On Gen 1 it runs on every setup, not just for
+    legacy entries missing a model - server_hostname needs re-checking
+    every time, since it can change at any point after setup (see
+    _async_check_server_hostname). Anything else only runs it to fill
+    in a missing model (see async_setup_entry). Best-effort: silently keeps
     everything unchanged on lookup failure. The MAC address isn't
     backfilled this way - it's only ever known when a device is found
     via DHCP discovery, which already carries the sender's MAC for free.
@@ -64,7 +65,10 @@ async def _async_fetch_serial_info(
     parsed = parse_serial_reply(reply) if reply else None
     if parsed is None:
         return
-    coordinator.server_hostname = parsed["server_hostname"]
+    # Gen 2's reply layout is unverified, so its hostname field isn't
+    # trusted enough to raise a critical repair over.
+    if coordinator.hw_version == "Gen 1":
+        coordinator.server_hostname = parsed["server_hostname"]
     if entry.data.get("model") is None:
         coordinator.model = parsed["model"]
         _LOGGER.debug(
@@ -216,10 +220,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
     entry.runtime_data = coordinator
     entry.async_on_unload(connection.close)
 
-    await _async_fetch_serial_info(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
-    await coordinator.async_fetch_disables_state()
-    await coordinator.async_fetch_motor_speed()
+    # Everything 1.1.0 added to setup (Feature Disables, motor speed, and
+    # Get Serial on every setup for the Server Hostname check) is only
+    # verified against Gen 1. A Gen 2 shade broke right after being added
+    # (issue #17), so anything that isn't a confirmed Gen 1 only gets what
+    # 1.0.0 already sent: Get Device ID, plus Get Serial when the model
+    # still needs filling in.
+    if coordinator.hw_version == "Gen 1":
+        await _async_fetch_serial_info(hass, entry, coordinator)
+        await coordinator.async_fetch_disables_state()
+        await coordinator.async_fetch_motor_speed()
+    elif entry.data.get("model") is None:
+        await _async_fetch_serial_info(hass, entry, coordinator)
     _async_check_rf_gateway(hass, entry, coordinator)
     _async_check_server_hostname(hass, entry, coordinator)
 
