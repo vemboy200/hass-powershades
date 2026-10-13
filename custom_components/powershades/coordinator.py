@@ -214,9 +214,8 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             serial_number=str(self.serial_number) if self.serial_number else None,
             sw_version=self.firmware_version,
             hw_version=self.hw_version,
-            # Only Gen 2 shades have a built-in web UI. Plain HTTP on the
-            # default port is an assumption until a Gen 2 owner confirms
-            # the address their browser shows (issue #17).
+            # Only Gen 2 shades have a built-in web UI, served over plain
+            # HTTP on port 80 (confirmed by a Gen 2 owner in issue #17).
             configuration_url=(
                 f"http://{self.ip_address}" if self.hw_version == "Gen 2" else None
             ),
