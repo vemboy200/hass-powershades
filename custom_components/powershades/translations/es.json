@@ -57,10 +57,6 @@
                     "reset_failed": "No se pudo confirmar el nuevo nombre de servidor - la persiana puede no estar accesible, o no aceptó el cambio. Comprueba el dispositivo e inténtalo de nuevo."
                 }
             }
-        },
-        "untrusted_server_hostname_unknown_generation": {
-            "title": "{name} no está configurada para hablar con los propios servidores de PowerShades",
-            "description": "La configuración Server Hostname de tu persiana es \"{hostname}\", que no es uno de los propios servidores de PowerShades. Esta configuración controla adónde se conectan los comandos de la persiana hacia la nube - incluidos Buscar actualizaciones, la entidad de actualización de firmware y, si Permitir conexión a la nube está activado, el control remoto (fuera de casa) de la app oficial de PowerShades - y cualquiera en tu red puede cambiarla, ya que el protocolo de PowerShades no tiene autenticación para esto.\n\nLa acción Instalar de la entidad de actualización de firmware está bloqueada mientras tenga un valor no fiable.\n\nNo se pudo identificar la generación de hardware de esta persiana, así que no hay restablecimiento con un clic. Usa el servicio powershades.set_server_hostname para establecerlo en \"dashboard.powershades.com\" (Gen 1) o \"cloudserver.powershades.com\" (Gen 2), según corresponda a tu persiana."
         }
     },
     "exceptions": {

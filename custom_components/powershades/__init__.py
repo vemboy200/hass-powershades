@@ -75,14 +75,12 @@ async def _async_fetch_serial_info(
         )
 
 
-# model_version from Get Device ID. 0 = Gen 1 is confirmed by the
-# hardware's owner. 2 = Gen 2 comes from Config.NET, which only shows its
-# PoE2 Web Server button (Gen 2 is the one with a web server) when
-# model_version is 2.
-_MODEL_VERSION_NAMES = {
-    0: "Gen 1",
-    2: "Gen 2",
-}
+# model_version from Get Device ID. Config.NET treats 2 as Gen 2 (it only
+# shows its PoE2 Web Server button then, and Gen 2 is the one with a web
+# server) and everything else as Gen 1, for PoE shades and RF gateways
+# alike - every generation branch in the app is == 2 vs. != 2. 0 = Gen 1 is
+# also confirmed by the hardware's owner.
+_MODEL_VERSION_GEN_2 = 2
 
 
 async def _async_fetch_device_id_info(coordinator: PowerShadesCoordinator) -> None:
@@ -106,8 +104,8 @@ async def _async_fetch_device_id_info(coordinator: PowerShadesCoordinator) -> No
         coordinator.firmware_version = str(device_id.low_rev)
     elif active_bank == 2:
         coordinator.firmware_version = str(device_id.high_rev)
-    coordinator.hw_version = _MODEL_VERSION_NAMES.get(
-        device_id.model_version, f"Model version {device_id.model_version}"
+    coordinator.hw_version = (
+        "Gen 2" if device_id.model_version == _MODEL_VERSION_GEN_2 else "Gen 1"
     )
 
 
@@ -175,9 +173,8 @@ def _async_check_server_hostname(
     feature. async_install_update also re-checks this itself as a hard
     block - this issue is the proactive warning, that's the backstop.
     Fixable via repairs.py's one-click reset to the factory value for the
-    shade's generation, or, when the generation is unknown and there's no
-    right value to offer, only via the powershades.set_server_hostname
-    service directly - both call
+    shade's generation (or the powershades.set_server_hostname service
+    directly) - both call
     coordinator.async_set_server_hostname, which re-reads the device to
     confirm the write actually took before this issue is considered
     resolved.
@@ -191,18 +188,9 @@ def _async_check_server_hostname(
         return
     expected = coordinator.expected_server_hostname
     if expected is None:
-        ir.async_create_issue(
-            hass,
-            DOMAIN,
-            issue_id,
-            is_fixable=False,
-            severity=ir.IssueSeverity.CRITICAL,
-            translation_key="untrusted_server_hostname_unknown_generation",
-            translation_placeholders={
-                "name": entry.title,
-                "hostname": coordinator.server_hostname,
-            },
-        )
+        # Get Device ID didn't answer this setup, so the generation (and
+        # the right value to reset to) is unknown. The next setup checks
+        # again; install is still blocked meanwhile.
         return
     ir.async_create_issue(
         hass,
