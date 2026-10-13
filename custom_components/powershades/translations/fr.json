@@ -57,10 +57,6 @@
                     "reset_failed": "Impossible de confirmer le nouveau nom de serveur - le store est peut-être injoignable, ou n'a pas accepté le changement. Vérifiez l'appareil et réessayez."
                 }
             }
-        },
-        "untrusted_server_hostname_unknown_generation": {
-            "title": "{name} n'est pas configuré pour communiquer avec les propres serveurs de PowerShades",
-            "description": "Le paramètre Server Hostname de votre store est \"{hostname}\", qui n'est pas l'un des propres serveurs de PowerShades. Ce paramètre contrôle où se connectent les commandes du store vers le cloud - y compris Rechercher des mises à jour, l'entité de mise à jour du firmware et, si Autoriser la connexion au cloud est activé, le contrôle à distance (hors de chez vous) de l'application officielle PowerShades - et n'importe qui sur votre réseau peut le modifier, car le protocole de PowerShades n'a aucune authentification pour cela.\n\nL'action Installer de l'entité de mise à jour du firmware est bloquée tant qu'il a une valeur non fiable.\n\nLa génération matérielle de ce store n'a pas pu être identifiée, il n'y a donc pas de réinitialisation en un clic. Utilisez le service powershades.set_server_hostname pour le définir sur \"dashboard.powershades.com\" (Gen 1) ou \"cloudserver.powershades.com\" (Gen 2), selon votre store."
         }
     },
     "exceptions": {

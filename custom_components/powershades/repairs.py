@@ -28,7 +28,7 @@ class UntrustedServerHostnameRepairFlow(RepairsFlow):
         """Reset the hostname on confirm, showing the current (untrusted)
         value so the user can see what's about to change."""
         coordinator = self.entry.runtime_data
-        # Only the fixable issue, raised when the generation is known, gets here.
+        # The issue is only raised when the generation, and so this, is known.
         expected = coordinator.expected_server_hostname
         assert expected is not None
         errors: dict[str, str] | None = None

@@ -170,15 +170,16 @@ async def test_setup_entry_fetches_firmware_version(hass: HomeAssistant) -> None
     [
         (0, "Gen 1"),
         (2, "Gen 2"),
-        (5, "Model version 5"),
+        # Config.NET treats anything but 2 as Gen 1.
+        (5, "Gen 1"),
     ],
 )
 async def test_setup_entry_fetches_hw_version(
     hass: HomeAssistant, model_version: int, expected_hw_version: str
 ) -> None:
     """Setup derives the hardware generation from Get Device ID's
-    model_version, with an unrecognized value falling back to showing
-    the raw number rather than a guessed label."""
+    model_version the way Config.NET does: 2 is Gen 2, anything else
+    Gen 1."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -374,20 +375,20 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
             "untrusted_server_hostname",
             "cloudserver.powershades.com",
         ),
-        # Unknown generation: still warned, but with no value to reset to.
-        (99, "evil.example.com", "untrusted_server_hostname_unknown_generation", None),
+        # Get Device ID didn't answer, so there's no right value to offer.
+        (None, "evil.example.com", None, None),
     ],
 )
 async def test_server_hostname_issue_per_generation(
     hass: HomeAssistant,
-    model_version: int,
+    model_version: int | None,
     hostname: str,
     translation_key: str | None,
     expected: str | None,
 ) -> None:
     """Either PowerShades hostname is trusted on any shade; anything else
-    raises the issue, fixable to the shade's own generation's factory
-    value when the generation is known."""
+    raises the issue, fixed by resetting to the shade's own generation's
+    factory value. Skipped while the generation is unknown."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -403,6 +404,8 @@ async def test_server_hostname_issue_per_generation(
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname=hostname)
         if op == OP_GET_DEVICE_ID:
+            if model_version is None:
+                raise PowerShadesTimeoutError("no reply")
             return device_id_packet(model_version=model_version)
         return build_packet(op)
 
@@ -426,8 +429,7 @@ async def test_server_hostname_issue_per_generation(
         return
     assert issue is not None
     assert issue.translation_key == translation_key
-    assert issue.is_fixable is (expected is not None)
-    assert issue.translation_placeholders.get("expected") == expected
+    assert issue.translation_placeholders["expected"] == expected
 
 
 async def test_setup_entry_no_issue_for_trusted_server_hostname(

@@ -57,10 +57,6 @@
                     "reset_failed": "Could not confirm the new hostname was set - the shade may be unreachable, or didn't accept the change. Check the device and try again."
                 }
             }
-        },
-        "untrusted_server_hostname_unknown_generation": {
-            "title": "{name} is not configured to talk to PowerShades' own servers",
-            "description": "Your shade's Server Hostname setting is \"{hostname}\", which isn't one of PowerShades' own servers. This setting controls where the shade's own cloud-facing commands connect - including Check for Updates, the Firmware update entity, and, if Allow Cloud Connection is enabled, the official PowerShades app's remote (away-from-home) control - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value.\n\nThis shade's hardware generation couldn't be identified, so there's no one-click reset. Use the powershades.set_server_hostname service to set it to \"dashboard.powershades.com\" (Gen 1) or \"cloudserver.powershades.com\" (Gen 2), whichever matches your shade."
         }
     },
     "exceptions": {
