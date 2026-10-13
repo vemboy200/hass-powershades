@@ -12,7 +12,7 @@ from pyowershades import (
     build_set_server_hostname_payload,
 )
 
-from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 
 from .conftest import serial_packet
 
@@ -89,7 +89,7 @@ async def test_set_server_hostname_clears_untrusted_repair_issue(
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAME)
+            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAMES["Gen 1"])
         return b""
 
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
@@ -97,7 +97,7 @@ async def test_set_server_hostname_clears_untrusted_repair_issue(
     await hass.services.async_call(
         DOMAIN,
         "set_server_hostname",
-        {"entity_id": ENTITY_ID, "hostname": TRUSTED_SERVER_HOSTNAME},
+        {"entity_id": ENTITY_ID, "hostname": TRUSTED_SERVER_HOSTNAMES["Gen 1"]},
         blocking=True,
     )
 

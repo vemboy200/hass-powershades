@@ -20,7 +20,7 @@ from pyowershades import (
     parse_serial_reply,
 )
 
-from .const import DOMAIN, RF_GATEWAY_ISSUE_URL, TRUSTED_SERVER_HOSTNAME
+from .const import DOMAIN, RF_GATEWAY_ISSUE_URL, TRUSTED_SERVER_HOSTNAMES
 from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 from .discovery import async_start_discovery
 from .services import async_setup_services
@@ -162,8 +162,8 @@ def _async_check_server_hostname(
     entry: PowerShadesConfigEntry,
     coordinator: PowerShadesCoordinator,
 ) -> None:
-    """Warn if this device's Server Hostname setting isn't PowerShades'
-    own domain.
+    """Warn if this device's Server Hostname setting isn't one of
+    PowerShades' own servers.
 
     That setting (op 0x0B, Set Server Hostname) controls where the
     device's cloud-facing commands actually connect - Cloud Update
@@ -174,17 +174,35 @@ def _async_check_server_hostname(
     discovered the next time someone tries to use the firmware update
     feature. async_install_update also re-checks this itself as a hard
     block - this issue is the proactive warning, that's the backstop.
-    Fixable via repairs.py's one-click reset flow (or the
-    powershades.set_server_hostname service directly) - both call
+    Fixable via repairs.py's one-click reset to the factory value for the
+    shade's generation, or, when the generation is unknown and there's no
+    right value to offer, only via the powershades.set_server_hostname
+    service directly - both call
     coordinator.async_set_server_hostname, which re-reads the device to
     confirm the write actually took before this issue is considered
     resolved.
     """
     issue_id = _server_hostname_issue_id(entry)
-    if not coordinator.server_hostname or (
-        coordinator.server_hostname == TRUSTED_SERVER_HOSTNAME
+    if (
+        not coordinator.server_hostname
+        or coordinator.server_hostname in TRUSTED_SERVER_HOSTNAMES.values()
     ):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
+        return
+    expected = coordinator.expected_server_hostname
+    if expected is None:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.CRITICAL,
+            translation_key="untrusted_server_hostname_unknown_generation",
+            translation_placeholders={
+                "name": entry.title,
+                "hostname": coordinator.server_hostname,
+            },
+        )
         return
     ir.async_create_issue(
         hass,
@@ -196,7 +214,7 @@ def _async_check_server_hostname(
         translation_placeholders={
             "name": entry.title,
             "hostname": coordinator.server_hostname,
-            "expected": TRUSTED_SERVER_HOSTNAME,
+            "expected": expected,
         },
         data={"entry_id": entry.entry_id},
     )

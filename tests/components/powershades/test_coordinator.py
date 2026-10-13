@@ -36,6 +36,7 @@ from pyowershades import (
     PowerShadesConnection,
     PowerShadesTimeoutError,
     StatusReply,
+    build_packet,
     build_set_limit_payload,
     build_set_position_payload,
     build_set_server_hostname_payload,
@@ -677,6 +678,24 @@ async def test_async_install_update_allowed_on_trusted_hostname(coordinator) -> 
         OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
     )
     assert coordinator.server_hostname == "dashboard.powershades.com"
+
+
+async def test_async_install_update_allowed_on_gen2_hostname(coordinator) -> None:
+    """Gen 2's factory hostname is PowerShades' own too, so it doesn't
+    block an install."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname="cloudserver.powershades.com")
+        return build_packet(op)
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    await coordinator.async_install_update()
+
+    coordinator.connection.async_request.assert_any_call(
+        OP_CLOUD_UPDATE, CLOUD_UPDATE_INSTALL_PAYLOAD
+    )
 
 
 async def test_async_install_update_allowed_when_fresh_read_fails(

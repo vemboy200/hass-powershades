@@ -20,7 +20,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from .conftest import (
@@ -319,6 +319,8 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
             return debug_info_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet()
         return build_packet(op)
 
     with (
@@ -346,8 +348,85 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
     assert issue.translation_placeholders == {
         "name": entry.title,
         "hostname": "evil.example.com",
-        "expected": TRUSTED_SERVER_HOSTNAME,
+        "expected": TRUSTED_SERVER_HOSTNAMES["Gen 1"],
     }
+
+
+@pytest.mark.parametrize(
+    ("model_version", "hostname", "translation_key", "expected"),
+    [
+        # Both of PowerShades' own hostnames are fine on any generation.
+        (0, "dashboard.powershades.com", None, None),
+        (0, "cloudserver.powershades.com", None, None),
+        (2, "cloudserver.powershades.com", None, None),
+        (2, "dashboard.powershades.com", None, None),
+        # Anything else offers the factory value for the shade's generation.
+        (
+            0,
+            "evil.example.com",
+            "untrusted_server_hostname",
+            "dashboard.powershades.com",
+        ),
+        (
+            2,
+            "evil.example.com",
+            "untrusted_server_hostname",
+            "cloudserver.powershades.com",
+        ),
+        # Unknown generation: still warned, but with no value to reset to.
+        (99, "evil.example.com", "untrusted_server_hostname_unknown_generation", None),
+    ],
+)
+async def test_server_hostname_issue_per_generation(
+    hass: HomeAssistant,
+    model_version: int,
+    hostname: str,
+    translation_key: str | None,
+    expected: str | None,
+) -> None:
+    """Either PowerShades hostname is trusted on any shade; anything else
+    raises the issue, fixable to the shade's own generation's factory
+    value when the generation is known."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname=hostname)
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet(model_version=model_version)
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+    )
+    if translation_key is None:
+        assert issue is None
+        return
+    assert issue is not None
+    assert issue.translation_key == translation_key
+    assert issue.is_fixable is (expected is not None)
+    assert issue.translation_placeholders.get("expected") == expected
 
 
 async def test_setup_entry_no_issue_for_trusted_server_hostname(
@@ -355,7 +434,9 @@ async def test_setup_entry_no_issue_for_trusted_server_hostname(
 ) -> None:
     """A device pointed at PowerShades' own server never gets the issue
     (the config_entry fixture's default is the trusted hostname)."""
-    assert config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAME
+    assert (
+        config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAMES["Gen 1"]
+    )
 
     issue_registry = ir.async_get(hass)
     assert (
@@ -426,6 +507,8 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
             return debug_info_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet()
         return build_packet(op)
 
     with (
