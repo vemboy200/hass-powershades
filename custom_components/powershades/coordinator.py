@@ -526,7 +526,8 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         Reads the current Feature Disables byte first and only flips the
         TCP/cloud bit - a blind write would silently clear whichever
         other Feature Disables bits the device already has set (e.g. via
-        the official app).
+        the official app). The Set's own reply doesn't confirm what was
+        written, so the byte is read back afterwards instead.
         """
         await self.async_fetch_disables_state()
         if self._disables_raw is None:
@@ -539,23 +540,20 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             self._disables_raw, tcp_cloud_disabled=not allow
         )
         try:
-            reply = await self.connection.async_request(OP_DISABLES, payload)
+            await self.connection.async_request(OP_DISABLES, payload)
         except PowerShadesTimeoutError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="cloud_connection_not_confirmed",
                 translation_placeholders={"ip_address": self.ip_address},
             ) from err
-        disables = parse_disables_reply(reply)
-        if disables is None:
+        await self.async_fetch_disables_state()
+        if self.allow_cloud_connection is not allow:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="cloud_connection_not_confirmed",
                 translation_placeholders={"ip_address": self.ip_address},
             )
-        self._disables_raw = disables.raw
-        self.allow_cloud_connection = not disables.tcp_cloud_disabled
-        self.async_update_listeners()
         _LOGGER.info("Set allow_cloud_connection=%s for %s", allow, self.ip_address)
 
     async def async_set_shade_name(self, name: str) -> None:
