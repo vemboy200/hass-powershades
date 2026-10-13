@@ -76,6 +76,11 @@ type PowerShadesConfigEntry = ConfigEntry[PowerShadesCoordinator]
 _RESET_SPEED_POLL_INTERVAL = 2
 _RESET_SPEED_MAX_WAIT = 120
 
+# The shade asks PowerShades' cloud before it answers an update check, so
+# its reply takes far longer than a normal request's. Config.NET sends the
+# check once and waits 10s for it; a retry would only start another lookup.
+_UPDATE_CHECK_TIMEOUT = 10
+
 
 def _settle_motor_state(position: int | None, motor_state: int | None) -> int | None:
     """Treat a move toward a limit the shade is already at as stopped.
@@ -610,7 +615,10 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         """
         try:
             reply = await self.connection.async_request(
-                OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD
+                OP_CLOUD_UPDATE,
+                CLOUD_UPDATE_CHECK_PAYLOAD,
+                timeout=_UPDATE_CHECK_TIMEOUT,
+                retries=0,
             )
         except PowerShadesTimeoutError as err:
             raise HomeAssistantError(

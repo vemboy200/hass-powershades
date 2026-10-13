@@ -562,12 +562,13 @@ async def test_async_reset_speed_after_move_skips_set_on_timeout(coordinator) ->
 
 
 async def test_async_check_for_update_stores_result(coordinator) -> None:
-    """Checking for updates sends the check flag and stores the raw
-    revision number the device reports."""
-    calls: list[tuple[int, bytes]] = []
+    """Checking for updates sends the check flag once, waits as long as
+    the vendor app does for the cloud lookup, and stores the raw revision
+    number the device reports."""
+    calls: list[tuple[int, bytes, float | None, int | None]] = []
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
-        calls.append((op, payload))
+        calls.append((op, payload, timeout, retries))
         if op == OP_CLOUD_UPDATE:
             return cloud_update_packet(result=512)
         return b""
@@ -576,7 +577,7 @@ async def test_async_check_for_update_stores_result(coordinator) -> None:
 
     await coordinator.async_check_for_update()
 
-    assert calls == [(OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD)]
+    assert calls == [(OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD, 10, 0)]
     assert coordinator.latest_firmware_version == "512"
 
 

@@ -36,7 +36,6 @@ from pyowershades import (
         ("step_down", (OP_STEP_DOWN, b"")),
         ("reboot", (OP_REBOOT, b"")),
         ("save_limits", (OP_SAVE_LIMITS, b"")),
-        ("check_for_updates", (OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD)),
     ],
 )
 async def test_button_press_sends_command(
@@ -121,8 +120,9 @@ async def test_check_for_updates_enabled_by_default(
 async def test_check_for_updates_stores_latest_version(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Pressing Check for Updates records the reported latest firmware
-    revision on the coordinator."""
+    """Pressing Check for Updates sends the check once with the vendor
+    app's 10s wait and records the reported latest firmware revision on
+    the coordinator."""
     coordinator = config_entry.runtime_data
     assert coordinator.latest_firmware_version is None
 
@@ -133,6 +133,9 @@ async def test_check_for_updates_stores_latest_version(
         blocking=True,
     )
 
+    coordinator.connection.async_request.assert_any_call(
+        OP_CLOUD_UPDATE, CLOUD_UPDATE_CHECK_PAYLOAD, timeout=10, retries=0
+    )
     assert coordinator.latest_firmware_version == "100"
 
 
