@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pyowershades import (
     DISABLE_TCP_CLOUD,
+    DISABLES_WRITE_FLAG,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
@@ -24,6 +25,7 @@ from .conftest import (
     debug_info_packet,
     device_id_packet,
     disables_packet,
+    fake_disables_device,
     status_packet,
 )
 
@@ -89,22 +91,15 @@ async def test_allow_cloud_connection_reflects_disabled_bit(
 async def test_turn_off_sends_disables_command(
     hass: HomeAssistant, config_entry
 ) -> None:
-    """Turning the switch off sets the TCP/cloud disable bit, preserving
-    the other bit already in the fixture's default Disables byte."""
+    """Turning the switch off sets the TCP/cloud disable bit along with
+    the write flag."""
     registry = er.async_get(hass)
     registry.async_update_entity(ALLOW_CLOUD_CONNECTION_ENTITY_ID, disabled_by=None)
     await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
 
     coordinator = config_entry.runtime_data
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_DISABLES:
-            if payload:
-                return disables_packet(tcp_cloud_disabled=True)
-            return disables_packet(tcp_cloud_disabled=False)
-        return b""
-
+    fake_request, _ = fake_disables_device()
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
 
     await hass.services.async_call(
@@ -115,7 +110,7 @@ async def test_turn_off_sends_disables_command(
     )
 
     coordinator.connection.async_request.assert_any_call(
-        OP_DISABLES, bytes([0x01 | DISABLE_TCP_CLOUD])
+        OP_DISABLES, bytes([DISABLES_WRITE_FLAG | DISABLE_TCP_CLOUD])
     )
     assert hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID).state == "off"
 
@@ -130,15 +125,7 @@ async def test_turn_on_sends_disables_command(
     await hass.async_block_till_done()
 
     coordinator = config_entry.runtime_data
-    disabled = {"value": True}
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_DISABLES:
-            if payload:
-                disabled["value"] = bool(payload[0] & DISABLE_TCP_CLOUD)
-            return disables_packet(tcp_cloud_disabled=disabled["value"])
-        return b""
-
+    fake_request, _ = fake_disables_device(stored=DISABLE_TCP_CLOUD)
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
     await coordinator.async_fetch_disables_state()
     await hass.async_block_till_done()
@@ -151,7 +138,9 @@ async def test_turn_on_sends_disables_command(
         blocking=True,
     )
 
-    coordinator.connection.async_request.assert_any_call(OP_DISABLES, bytes([0x01]))
+    coordinator.connection.async_request.assert_any_call(
+        OP_DISABLES, bytes([DISABLES_WRITE_FLAG])
+    )
     assert hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID).state == "on"
 
 

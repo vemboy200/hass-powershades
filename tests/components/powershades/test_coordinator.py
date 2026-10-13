@@ -11,6 +11,7 @@ from pyowershades import (
     CLOUD_UPDATE_CHECK_PAYLOAD,
     CLOUD_UPDATE_INSTALL_PAYLOAD,
     DISABLE_TCP_CLOUD,
+    DISABLES_WRITE_FLAG,
     LIMIT_LOWER,
     LIMIT_UPPER,
     OP_ADMIN_ACCESS,
@@ -52,6 +53,7 @@ from .conftest import (
     cloud_update_packet,
     debug_info_packet,
     disables_packet,
+    fake_disables_device,
     motor_params_packet,
     serial_packet,
     status_packet,
@@ -327,7 +329,7 @@ async def test_async_fetch_disables_state(coordinator) -> None:
     await coordinator.async_fetch_disables_state()
 
     assert coordinator.allow_cloud_connection is True
-    assert coordinator._disables_raw == 0x01
+    assert coordinator._disables_raw == 0x00
 
 
 async def test_async_fetch_disables_state_timeout_leaves_unset(coordinator) -> None:
@@ -347,23 +349,35 @@ async def test_async_set_allow_cloud_connection_preserves_other_bits(
     coordinator,
 ) -> None:
     """Turning cloud connectivity off only flips that bit, keeping
-    whatever other Feature Disables the device already has set."""
-    sent_payloads = []
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_DISABLES:
-            if payload:
-                sent_payloads.append(payload)
-                return disables_packet(tcp_cloud_disabled=True, other_bits=0x01 | 0x04)
-            return disables_packet(tcp_cloud_disabled=False, other_bits=0x01 | 0x04)
-        return b""
-
+    whatever other Feature Disables the device already has set, and
+    always sends the write flag."""
+    fake_request, state = fake_disables_device(stored=0x04)
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
 
     await coordinator.async_set_allow_cloud_connection(False)
 
-    assert sent_payloads == [bytes([0x01 | 0x04 | DISABLE_TCP_CLOUD])]
+    coordinator.connection.async_request.assert_any_call(
+        OP_DISABLES, bytes([DISABLES_WRITE_FLAG | 0x04 | DISABLE_TCP_CLOUD])
+    )
+    assert state["byte"] == 0x04 | DISABLE_TCP_CLOUD
     assert coordinator.allow_cloud_connection is False
+
+
+async def test_async_set_allow_cloud_connection_reads_back(coordinator) -> None:
+    """The Set's own reply is ignored; the state comes from reading the
+    byte back, and a write the device didn't store raises."""
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        # Device acknowledges the Set but never stores it.
+        return disables_packet(tcp_cloud_disabled=bool(payload))
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_allow_cloud_connection(False)
+
+    assert exc_info.value.translation_key == "cloud_connection_not_confirmed"
+    assert coordinator.allow_cloud_connection is True
 
 
 async def test_async_set_allow_cloud_connection_failure_raises(coordinator) -> None:
