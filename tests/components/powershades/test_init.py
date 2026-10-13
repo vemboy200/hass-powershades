@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from pyowershades import (
     OP_DISABLES,
@@ -573,3 +574,50 @@ async def test_setup_entry_skips_gen1_only_reads_on_gen2(
     coordinator = entry.runtime_data
     assert coordinator.motor_speed_percent is None
     assert coordinator.allow_cloud_connection is None
+
+
+@pytest.mark.parametrize(
+    ("model_version", "expected_url"),
+    [
+        (0, None),
+        (2, f"http://{TEST_IP}"),
+    ],
+)
+async def test_configuration_url_only_on_gen2(
+    hass: HomeAssistant, model_version: int, expected_url: str | None
+) -> None:
+    """Only Gen 2 shades, which have a built-in web UI, get a Visit link
+    on their device page."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet(model_version=model_version)
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    device = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, str(TEST_SERIAL)), entry.entry_id
+    )
+    assert device is not None
+    assert device.configuration_url == expected_url
