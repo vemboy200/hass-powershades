@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from pyowershades import OP_GET_SERIAL, PowerShadesTimeoutError
+from pyowershades import (
+    OP_GET_SERIAL,
+    OP_SET_SERVER_HOSTNAME,
+    PowerShadesTimeoutError,
+    build_set_server_hostname_payload,
+)
 
 from custom_components.powershades.const import TRUSTED_SERVER_HOSTNAMES
 from custom_components.powershades.repairs import (
@@ -80,6 +85,32 @@ async def test_confirm_step_success_resets_hostname(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert coordinator.server_hostname == TRUSTED_SERVER_HOSTNAMES["Gen 1"]
+
+
+async def test_confirm_step_resets_gen2_to_its_own_hostname(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """A Gen 2 shade is reset to Gen 2's factory hostname, not Gen 1's,
+    which would cut it off from PowerShades' cloud (issue #17)."""
+    coordinator = config_entry.runtime_data
+    coordinator.hw_version = "Gen 2"
+    coordinator.server_hostname = "evil.example.com"
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAMES["Gen 2"])
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+    flow = UntrustedServerHostnameRepairFlow(config_entry)
+
+    result = await flow.async_step_confirm(user_input={})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    coordinator.connection.async_request.assert_any_call(
+        OP_SET_SERVER_HOSTNAME,
+        build_set_server_hostname_payload(TRUSTED_SERVER_HOSTNAMES["Gen 2"]),
+    )
 
 
 async def test_confirm_step_failure_shows_error_and_stays_open(

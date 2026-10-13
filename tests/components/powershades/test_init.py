@@ -353,21 +353,40 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
 
 
 @pytest.mark.parametrize(
-    ("model_version", "hostname", "expected"),
+    ("model_version", "hostname", "translation_key", "expected"),
     [
-        # Gen 2's factory hostname differs from Gen 1's (issue #17).
-        (2, "cloudserver.powershades.com", None),
-        (2, "dashboard.powershades.com", "cloudserver.powershades.com"),
-        (0, "cloudserver.powershades.com", "dashboard.powershades.com"),
-        # Unknown generation: no right value to reset to, so no issue.
-        (99, "evil.example.com", None),
+        # Both of PowerShades' own hostnames are fine on any generation.
+        (0, "dashboard.powershades.com", None, None),
+        (0, "cloudserver.powershades.com", None, None),
+        (2, "cloudserver.powershades.com", None, None),
+        (2, "dashboard.powershades.com", None, None),
+        # Anything else offers the factory value for the shade's generation.
+        (
+            0,
+            "evil.example.com",
+            "untrusted_server_hostname",
+            "dashboard.powershades.com",
+        ),
+        (
+            2,
+            "evil.example.com",
+            "untrusted_server_hostname",
+            "cloudserver.powershades.com",
+        ),
+        # Unknown generation: still warned, but with no value to reset to.
+        (99, "evil.example.com", "untrusted_server_hostname_unknown_generation", None),
     ],
 )
 async def test_server_hostname_issue_per_generation(
-    hass: HomeAssistant, model_version: int, hostname: str, expected: str | None
+    hass: HomeAssistant,
+    model_version: int,
+    hostname: str,
+    translation_key: str | None,
+    expected: str | None,
 ) -> None:
-    """The repair issue compares against the factory hostname for the
-    shade's own generation, and offers that value as the fix."""
+    """Either PowerShades hostname is trusted on any shade; anything else
+    raises the issue, fixable to the shade's own generation's factory
+    value when the generation is known."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -401,11 +420,13 @@ async def test_server_hostname_issue_per_generation(
     issue = ir.async_get(hass).async_get_issue(
         DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
     )
-    if expected is None:
+    if translation_key is None:
         assert issue is None
-    else:
-        assert issue is not None
-        assert issue.translation_placeholders["expected"] == expected
+        return
+    assert issue is not None
+    assert issue.translation_key == translation_key
+    assert issue.is_fixable is (expected is not None)
+    assert issue.translation_placeholders.get("expected") == expected
 
 
 async def test_setup_entry_no_issue_for_trusted_server_hostname(
