@@ -63,7 +63,7 @@ from pyowershades import (
     parse_shade_name_reply,
 )
 
-from .const import DOMAIN, TRUSTED_SERVER_HOSTNAME
+from .const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -639,6 +639,14 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
             self.latest_firmware_version,
         )
 
+    @property
+    def expected_server_hostname(self) -> str | None:
+        """Return the factory Server Hostname for this shade's
+        generation, or None if the generation is unknown."""
+        if self.hw_version is None:
+            return None
+        return TRUSTED_SERVER_HOSTNAMES.get(self.hw_version)
+
     async def async_install_update(self) -> None:
         """Trigger the device to install the latest firmware from its
         own cloud dashboard (op 0x44, flag 2).
@@ -673,7 +681,10 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         parsed = parse_serial_reply(serial_reply) if serial_reply else None
         if parsed is not None:
             self.server_hostname = parsed["server_hostname"]
-        if self.server_hostname and self.server_hostname != TRUSTED_SERVER_HOSTNAME:
+        if (
+            self.server_hostname
+            and self.server_hostname not in TRUSTED_SERVER_HOSTNAMES.values()
+        ):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="untrusted_server_hostname_blocked",
@@ -691,7 +702,7 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
         This is the only way to correct the untrusted-server-hostname
         repair issue from inside HA - most usefully by setting it back
-        to TRUSTED_SERVER_HOSTNAME, though this also works as a general
+        to expected_server_hostname, though this also works as a general
         "set it to whatever" service matching what the setting itself
         actually is. The vendor app's own handler doesn't read a reply
         for this command (same fire-and-forget pattern as Cloud Update's

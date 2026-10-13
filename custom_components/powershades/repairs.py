@@ -6,7 +6,6 @@ from homeassistant.components.repairs import RepairsFlow, RepairsFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import TRUSTED_SERVER_HOSTNAME
 from .coordinator import PowerShadesConfigEntry
 
 
@@ -29,10 +28,13 @@ class UntrustedServerHostnameRepairFlow(RepairsFlow):
         """Reset the hostname on confirm, showing the current (untrusted)
         value so the user can see what's about to change."""
         coordinator = self.entry.runtime_data
+        # The issue is only raised when the generation, and so this, is known.
+        expected = coordinator.expected_server_hostname
+        assert expected is not None
         errors: dict[str, str] | None = None
         if user_input is not None:
             try:
-                await coordinator.async_set_server_hostname(TRUSTED_SERVER_HOSTNAME)
+                await coordinator.async_set_server_hostname(expected)
             except HomeAssistantError:
                 errors = {"base": "reset_failed"}
             else:
@@ -43,7 +45,7 @@ class UntrustedServerHostnameRepairFlow(RepairsFlow):
             errors=errors,
             description_placeholders={
                 "hostname": coordinator.server_hostname or "unknown",
-                "expected": TRUSTED_SERVER_HOSTNAME,
+                "expected": expected,
             },
         )
 

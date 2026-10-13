@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pyowershades import OP_GET_SERIAL, PowerShadesTimeoutError
 
-from custom_components.powershades.const import TRUSTED_SERVER_HOSTNAME
+from custom_components.powershades.const import TRUSTED_SERVER_HOSTNAMES
 from custom_components.powershades.repairs import (
     UntrustedServerHostnameRepairFlow,
     async_create_fix_flow,
@@ -57,7 +57,7 @@ async def test_confirm_step_shows_current_and_expected_hostname(
     assert result["step_id"] == "confirm"
     assert result["description_placeholders"] == {
         "hostname": "evil.example.com",
-        "expected": TRUSTED_SERVER_HOSTNAME,
+        "expected": TRUSTED_SERVER_HOSTNAMES["Gen 1"],
     }
 
 
@@ -70,7 +70,7 @@ async def test_confirm_step_success_resets_hostname(
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAME)
+            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAMES["Gen 1"])
         return b""
 
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
@@ -79,7 +79,7 @@ async def test_confirm_step_success_resets_hostname(
     result = await flow.async_step_confirm(user_input={})
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert coordinator.server_hostname == TRUSTED_SERVER_HOSTNAME
+    assert coordinator.server_hostname == TRUSTED_SERVER_HOSTNAMES["Gen 1"]
 
 
 async def test_confirm_step_failure_shows_error_and_stays_open(

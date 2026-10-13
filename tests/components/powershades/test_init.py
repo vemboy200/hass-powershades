@@ -20,7 +20,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
 from .conftest import (
@@ -319,6 +319,8 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
             return debug_info_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet()
         return build_packet(op)
 
     with (
@@ -346,8 +348,64 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
     assert issue.translation_placeholders == {
         "name": entry.title,
         "hostname": "evil.example.com",
-        "expected": TRUSTED_SERVER_HOSTNAME,
+        "expected": TRUSTED_SERVER_HOSTNAMES["Gen 1"],
     }
+
+
+@pytest.mark.parametrize(
+    ("model_version", "hostname", "expected"),
+    [
+        # Gen 2's factory hostname differs from Gen 1's (issue #17).
+        (2, "cloudserver.powershades.com", None),
+        (2, "dashboard.powershades.com", "cloudserver.powershades.com"),
+        (0, "cloudserver.powershades.com", "dashboard.powershades.com"),
+        # Unknown generation: no right value to reset to, so no issue.
+        (99, "evil.example.com", None),
+    ],
+)
+async def test_server_hostname_issue_per_generation(
+    hass: HomeAssistant, model_version: int, hostname: str, expected: str | None
+) -> None:
+    """The repair issue compares against the factory hostname for the
+    shade's own generation, and offers that value as the fix."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_GET_STATUS:
+            return status_packet()
+        if op == OP_GET_DEBUG_INFO:
+            return debug_info_packet()
+        if op == OP_GET_SERIAL:
+            return serial_packet(server_hostname=hostname)
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet(model_version=model_version)
+        return build_packet(op)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=fake_request),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+    )
+    if expected is None:
+        assert issue is None
+    else:
+        assert issue is not None
+        assert issue.translation_placeholders["expected"] == expected
 
 
 async def test_setup_entry_no_issue_for_trusted_server_hostname(
@@ -355,7 +413,9 @@ async def test_setup_entry_no_issue_for_trusted_server_hostname(
 ) -> None:
     """A device pointed at PowerShades' own server never gets the issue
     (the config_entry fixture's default is the trusted hostname)."""
-    assert config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAME
+    assert (
+        config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAMES["Gen 1"]
+    )
 
     issue_registry = ir.async_get(hass)
     assert (
@@ -426,6 +486,8 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
             return debug_info_packet()
         if op == OP_GET_SERIAL:
             return serial_packet(server_hostname="evil.example.com")
+        if op == OP_GET_DEVICE_ID:
+            return device_id_packet()
         return build_packet(op)
 
     with (

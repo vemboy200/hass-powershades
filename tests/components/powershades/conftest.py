@@ -20,7 +20,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAME
+from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 
 TEST_IP = "192.168.1.50"
 TEST_SERIAL = 12345
@@ -282,7 +282,7 @@ def mock_connection():
         if op == OP_CLOUD_UPDATE:
             return cloud_update_packet()
         if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAME)
+            return serial_packet(server_hostname=TRUSTED_SERVER_HOSTNAMES["Gen 1"])
         return build_packet(op)
 
     with (

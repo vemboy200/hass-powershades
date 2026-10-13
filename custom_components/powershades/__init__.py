@@ -20,7 +20,7 @@ from pyowershades import (
     parse_serial_reply,
 )
 
-from .const import DOMAIN, RF_GATEWAY_ISSUE_URL, TRUSTED_SERVER_HOSTNAME
+from .const import DOMAIN, RF_GATEWAY_ISSUE_URL
 from .coordinator import PowerShadesConfigEntry, PowerShadesCoordinator
 from .discovery import async_start_discovery
 from .services import async_setup_services
@@ -162,8 +162,9 @@ def _async_check_server_hostname(
     entry: PowerShadesConfigEntry,
     coordinator: PowerShadesCoordinator,
 ) -> None:
-    """Warn if this device's Server Hostname setting isn't PowerShades'
-    own domain.
+    """Warn if this device's Server Hostname setting isn't the factory
+    value for its generation. Skipped when the generation is unknown,
+    since there's then no right value to reset it to.
 
     That setting (op 0x0B, Set Server Hostname) controls where the
     device's cloud-facing commands actually connect - Cloud Update
@@ -181,8 +182,11 @@ def _async_check_server_hostname(
     resolved.
     """
     issue_id = _server_hostname_issue_id(entry)
-    if not coordinator.server_hostname or (
-        coordinator.server_hostname == TRUSTED_SERVER_HOSTNAME
+    expected = coordinator.expected_server_hostname
+    if (
+        not coordinator.server_hostname
+        or expected is None
+        or coordinator.server_hostname == expected
     ):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
         return
@@ -196,7 +200,7 @@ def _async_check_server_hostname(
         translation_placeholders={
             "name": entry.title,
             "hostname": coordinator.server_hostname,
-            "expected": TRUSTED_SERVER_HOSTNAME,
+            "expected": expected,
         },
         data={"entry_id": entry.entry_id},
     )
