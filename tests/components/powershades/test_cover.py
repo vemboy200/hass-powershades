@@ -24,7 +24,11 @@ from pyowershades import (
 from custom_components.powershades import coordinator as coordinator_module
 from custom_components.powershades.cover import SPEED_PRESETS
 
-from .conftest import debug_info_packet, motor_params_packet
+from .conftest import (
+    debug_info_packet,
+    fake_motor_params_device,
+    motor_params_packet,
+)
 
 # Same field layout the outgoing Set PoE Motor Parameters payload uses -
 # see build_set_motor_speed_payload_gen1's docstring.
@@ -257,16 +261,13 @@ async def test_open_cover_with_speed_resets_after_move_when_enabled(
         ]
     )
 
+    motor_params_request, _ = fake_motor_params_device()
+
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         calls.append((op, payload))
         if op == OP_GET_DEBUG_INFO:
             return next(debug_replies)
-        if op == OP_POE_MOTOR_PARAMS:
-            if payload:
-                fields = struct.unpack(_SET_MOTOR_PARAMS_FORMAT, payload)
-                return motor_params_packet(motor_power_up=fields[10])
-            return motor_params_packet(motor_power_up=100)
-        return b""
+        return await motor_params_request(op, payload)
 
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
 

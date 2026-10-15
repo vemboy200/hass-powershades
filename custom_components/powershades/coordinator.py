@@ -494,22 +494,22 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         payload = build_set_motor_speed_payload_gen1(percent)
         try:
             await self.connection.async_request(OP_ADMIN_ACCESS, ADMIN_ACCESS_PAYLOAD)
-            reply = await self.connection.async_request(OP_POE_MOTOR_PARAMS, payload)
+            await self.connection.async_request(OP_POE_MOTOR_PARAMS, payload)
         except PowerShadesTimeoutError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="motor_speed_not_confirmed",
                 translation_placeholders={"ip_address": self.ip_address},
             ) from err
-        result = parse_motor_parameters_reply(reply)
-        if result is None:
+        # The Set's reply is all zeros on real hardware rather than echoing
+        # what was stored, so read the speed back to confirm it instead.
+        await self.async_fetch_motor_speed()
+        if self.motor_speed_percent != percent:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="motor_speed_not_confirmed",
                 translation_placeholders={"ip_address": self.ip_address},
             )
-        self.motor_speed_percent = result.motor_power_up
-        self.async_update_listeners()
         _LOGGER.info("Set motor speed=%s%% for %s", percent, self.ip_address)
 
     async def async_fetch_disables_state(self) -> None:
