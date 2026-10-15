@@ -55,6 +55,7 @@ from .conftest import (
     debug_info_packet,
     disables_packet,
     fake_disables_device,
+    fake_motor_params_device,
     motor_params_packet,
     serial_packet,
     status_packet,
@@ -413,20 +414,22 @@ async def test_async_set_motor_speed_sends_admin_access_then_set(
     as an atomic pair, using the exact Gen 1 fixed template."""
     coordinator.hw_version = "Gen 1"
     calls: list[tuple[int, bytes]] = []
+    device_request, state = fake_motor_params_device()
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         calls.append((op, payload))
-        if op == OP_POE_MOTOR_PARAMS:
-            return motor_params_packet(motor_power_up=70)
-        return b""
+        return await device_request(op, payload)
 
     coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
 
     await coordinator.async_set_motor_speed(70)
 
-    # Admin Access immediately before the Set, in that order.
+    # Admin Access immediately before the Set, in that order, then a Get
+    # to read the stored speed back.
     ops = [op for op, _ in calls]
-    assert ops == [OP_ADMIN_ACCESS, OP_POE_MOTOR_PARAMS]
+    assert ops == [OP_ADMIN_ACCESS, OP_POE_MOTOR_PARAMS, OP_POE_MOTOR_PARAMS]
+    assert calls[2][1] == b""
+    assert state["motor_power_up"] == 70
 
     admin_call = calls[0]
     assert admin_call[1] == ADMIN_ACCESS_PAYLOAD
@@ -442,7 +445,27 @@ async def test_async_set_motor_speed_sends_admin_access_then_set(
     assert fields[16] == 70  # MotorPowerDOWN
 
     assert coordinator.motor_speed_percent == 70
-    assert coordinator.motor_speed_percent == 70
+
+
+async def test_async_set_motor_speed_not_stored_raises(coordinator) -> None:
+    """If reading the speed back shows the Set didn't land, the failure
+    is raised and the entity keeps showing what the shade really has."""
+    coordinator.hw_version = "Gen 1"
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op == OP_POE_MOTOR_PARAMS:
+            if payload:
+                return build_packet(OP_POE_MOTOR_PARAMS, payload=bytes(42))
+            return motor_params_packet(motor_power_up=100)
+        return b""
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_motor_speed(70)
+
+    assert exc_info.value.translation_key == "motor_speed_not_confirmed"
+    assert coordinator.motor_speed_percent == 100
 
 
 async def test_async_set_motor_speed_rejects_non_gen1(coordinator) -> None:

@@ -232,6 +232,25 @@ def motor_params_packet(
     return build_packet(OP_POE_MOTOR_PARAMS, payload=payload)
 
 
+def fake_motor_params_device(stored: int = 100):
+    """Return an async_request side effect that stores the Gen 1 motor
+    speed the way real hardware does: a Set's reply is all zeros rather
+    than echoing what was written, and only a Get reports the stored
+    MotorPowerUP."""
+    state = {"motor_power_up": stored}
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        if op != OP_POE_MOTOR_PARAMS:
+            return b""
+        if payload:
+            # MotorPowerUP sits 20 bytes into the Set payload.
+            state["motor_power_up"] = struct.unpack_from("<h", payload, 20)[0]
+            return build_packet(OP_POE_MOTOR_PARAMS, payload=bytes(42))
+        return motor_params_packet(motor_power_up=state["motor_power_up"])
+
+    return fake_request, state
+
+
 def serial_packet(
     *,
     model: int = 1,
