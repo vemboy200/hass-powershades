@@ -156,11 +156,11 @@ SENSORS: tuple[PowerShadesSensorDescription, ...] = (
     ),
 )
 
-# Gen 1's Set template forces SpeedControlEnable off (see
-# build_set_motor_speed_payload_gen1 in pyowershades), so its RPM-based
-# speed-control loop never runs - Desired RPM reads a constant 0 there
-# regardless of actual motion, confirmed on real Gen 1 hardware. Only
-# show it where that might not hold.
+# Gen 1 shades run with SpeedControlEnable off (every one read back on
+# real hardware, and the vendor app's Gen 1 Set template forces it), so
+# their RPM-based speed-control loop never runs - Desired RPM reads a
+# constant 0 there regardless of actual motion, confirmed on real Gen 1
+# hardware. Only show it where that might not hold.
 _GEN_2_ONLY_SENSOR_KEYS = frozenset({"desired_rpm"})
 
 
