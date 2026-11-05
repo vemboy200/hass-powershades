@@ -1,2 +1,2 @@
 pytest-homeassistant-custom-component==0.13.365
-pyowershades==0.4.1
+pyowershades==0.5.0

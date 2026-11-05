@@ -225,7 +225,7 @@ async def test_desired_rpm_not_created_on_gen1(
     hass: HomeAssistant, config_entry
 ) -> None:
     """Gen 1 (the fixture's default) never gets a Desired RPM sensor -
-    Gen 1's Set template forces SpeedControlEnable off, so the field is
+    Gen 1 shades run with SpeedControlEnable off, so the field is
     a confirmed-dead constant 0 there, not useful diagnostics."""
     registry = er.async_get(hass)
     assert registry.async_get(DESIRED_RPM_ENTITY_ID) is None

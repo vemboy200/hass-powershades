@@ -477,10 +477,11 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
 
         Admin-gated: Admin Access (op 0x3C, a fixed factory key) must be
         sent immediately before the Set, every time - confirmed from the
-        vendor app never caching an unlock. No read-before-write is
-        needed here (unlike Feature Disables): Gen 1 firmware discards
-        whatever was previously configured for every field except
-        MotorPowerUP/DOWN, so there's nothing to preserve.
+        vendor app never caching an unlock. The Set carries the whole
+        motor config, and the firmware stores all of it, so the current
+        config is read first and written back with only the speed
+        changed (like Feature Disables). Sending the vendor app's fixed
+        Gen 1 template instead halved the shade's end-of-travel power.
         """
         if self.hw_version != "Gen 1":
             raise HomeAssistantError(
@@ -491,7 +492,23 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                     "hw_version": self.hw_version or "unknown",
                 },
             )
-        payload = build_set_motor_speed_payload_gen1(percent)
+        try:
+            current = parse_motor_parameters_reply(
+                await self.connection.async_request(OP_POE_MOTOR_PARAMS)
+            )
+        except PowerShadesTimeoutError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="motor_speed_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            ) from err
+        if current is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="motor_speed_not_confirmed",
+                translation_placeholders={"ip_address": self.ip_address},
+            )
+        payload = build_set_motor_speed_payload_gen1(percent, current)
         try:
             await self.connection.async_request(OP_ADMIN_ACCESS, ADMIN_ACCESS_PAYLOAD)
             await self.connection.async_request(OP_POE_MOTOR_PARAMS, payload)

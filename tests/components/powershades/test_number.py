@@ -58,7 +58,7 @@ async def test_set_motor_speed_sends_admin_access_and_set(
     hass: HomeAssistant, config_entry
 ) -> None:
     """Setting the number sends Admin Access immediately before a Set
-    PoE Motor Parameters command, using the Gen 1 fixed template."""
+    PoE Motor Parameters command."""
     coordinator = config_entry.runtime_data
     coordinator.hw_version = "Gen 1"
 

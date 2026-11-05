@@ -19,6 +19,7 @@ from pyowershades import (
     OP_SET_POSITION,
     build_set_motor_speed_payload_gen1,
     build_set_position_payload,
+    parse_motor_parameters_reply,
 )
 
 from custom_components.powershades import coordinator as coordinator_module
@@ -179,13 +180,19 @@ async def test_open_cover_with_speed_sets_motor_speed_first(
 
     ops = [op for op, _ in calls]
     admin_index = ops.index(OP_ADMIN_ACCESS)
-    motor_index = ops.index(OP_POE_MOTOR_PARAMS)
+    # The first Get reads the current config; the Set follows Admin Access.
+    motor_index = admin_index + 1
     position_index = ops.index(OP_SET_POSITION)
     assert admin_index < motor_index < position_index
     assert calls[admin_index] == (OP_ADMIN_ACCESS, ADMIN_ACCESS_PAYLOAD)
     assert calls[motor_index] == (
         OP_POE_MOTOR_PARAMS,
-        build_set_motor_speed_payload_gen1(SPEED_PRESETS["fast"]),
+        build_set_motor_speed_payload_gen1(
+            SPEED_PRESETS["fast"],
+            parse_motor_parameters_reply(
+                motor_params_packet(motor_power_up=SPEED_PRESETS["fast"])
+            ),
+        ),
     )
     assert calls[position_index] == (OP_SET_POSITION, build_set_position_payload(100))
 
@@ -215,12 +222,18 @@ async def test_set_cover_position_with_speed_sets_motor_speed_first(
 
     ops = [op for op, _ in calls]
     admin_index = ops.index(OP_ADMIN_ACCESS)
-    motor_index = ops.index(OP_POE_MOTOR_PARAMS)
+    # The first Get reads the current config; the Set follows Admin Access.
+    motor_index = admin_index + 1
     position_index = ops.index(OP_SET_POSITION)
     assert admin_index < motor_index < position_index
     assert calls[motor_index] == (
         OP_POE_MOTOR_PARAMS,
-        build_set_motor_speed_payload_gen1(SPEED_PRESETS["slow"]),
+        build_set_motor_speed_payload_gen1(
+            SPEED_PRESETS["slow"],
+            parse_motor_parameters_reply(
+                motor_params_packet(motor_power_up=SPEED_PRESETS["slow"])
+            ),
+        ),
     )
     assert calls[position_index] == (OP_SET_POSITION, build_set_position_payload(30))
 

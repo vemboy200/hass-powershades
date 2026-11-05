@@ -410,8 +410,9 @@ async def test_async_fetch_motor_speed(coordinator) -> None:
 async def test_async_set_motor_speed_sends_admin_access_then_set(
     coordinator,
 ) -> None:
-    """Setting a speed sends Admin Access immediately before the Set,
-    as an atomic pair, using the exact Gen 1 fixed template."""
+    """Setting a speed reads the current config, then sends Admin Access
+    immediately before a Set that writes that config back with only the
+    speed changed."""
     coordinator.hw_version = "Gen 1"
     calls: list[tuple[int, bytes]] = []
     device_request, state = fake_motor_params_device()
@@ -424,25 +425,35 @@ async def test_async_set_motor_speed_sends_admin_access_then_set(
 
     await coordinator.async_set_motor_speed(70)
 
-    # Admin Access immediately before the Set, in that order, then a Get
-    # to read the stored speed back.
+    # A Get for the current config, Admin Access immediately before the
+    # Set, then a Get to read the stored speed back.
     ops = [op for op, _ in calls]
-    assert ops == [OP_ADMIN_ACCESS, OP_POE_MOTOR_PARAMS, OP_POE_MOTOR_PARAMS]
-    assert calls[2][1] == b""
+    assert ops == [
+        OP_POE_MOTOR_PARAMS,
+        OP_ADMIN_ACCESS,
+        OP_POE_MOTOR_PARAMS,
+        OP_POE_MOTOR_PARAMS,
+    ]
+    assert calls[0][1] == b""
+    assert calls[3][1] == b""
     assert state["motor_power_up"] == 70
 
-    admin_call = calls[0]
+    admin_call = calls[1]
     assert admin_call[1] == ADMIN_ACCESS_PAYLOAD
 
     # The outgoing Set payload is a different (longer) shape than a
     # reply - it has a leading ParamType byte the reply doesn't - so
     # unpack it directly rather than through parse_motor_parameters_reply.
-    set_call = calls[1]
+    set_call = calls[2]
     fields = struct.unpack("<4BhhIIHHhhIIHHhhBBHH", set_call[1])
     assert fields[0] == 1  # ParamType: Set
-    assert fields[1] == 0  # SpeedControlEnable: off
     assert fields[10] == 70  # MotorPowerUP
     assert fields[16] == 70  # MotorPowerDOWN
+    # The rest is the shade's own config, not the vendor template's.
+    assert fields[8] == 25  # ComputerMotorPowerTimeUP
+    assert fields[11] == 100  # MotorPowerUpDECEL
+    assert fields[17] == 100  # MotorPowerDownDECEL
+    assert fields[18] == 3  # SoftStopDelay
 
     assert coordinator.motor_speed_percent == 70
 
@@ -466,6 +477,27 @@ async def test_async_set_motor_speed_not_stored_raises(coordinator) -> None:
 
     assert exc_info.value.translation_key == "motor_speed_not_confirmed"
     assert coordinator.motor_speed_percent == 100
+
+
+async def test_async_set_motor_speed_unreadable_config_skips_set(
+    coordinator,
+) -> None:
+    """If the current config can't be read, nothing is written - a Set
+    without it would overwrite the shade's tuning."""
+    coordinator.hw_version = "Gen 1"
+    calls: list[int] = []
+
+    async def fake_request(op, payload=b"", timeout=None, retries=None):
+        calls.append(op)
+        return build_packet(OP_POE_MOTOR_PARAMS, payload=bytes(10))
+
+    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
+
+    with pytest.raises(HomeAssistantError) as exc_info:
+        await coordinator.async_set_motor_speed(70)
+
+    assert exc_info.value.translation_key == "motor_speed_not_confirmed"
+    assert calls == [OP_POE_MOTOR_PARAMS]
 
 
 async def test_async_set_motor_speed_rejects_non_gen1(coordinator) -> None:
