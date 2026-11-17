@@ -539,8 +539,9 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
 async def test_setup_entry_skips_gen1_only_reads_on_gen2(
     hass: HomeAssistant,
 ) -> None:
-    """A Gen 2 shade never gets the Feature Disables or motor speed reads,
-    which only feed Gen 1-only entities (issue #17)."""
+    """A Gen 2 shade never gets the motor speed read, which only feeds
+    Gen 1-only entities, and no shade gets a Feature Disables read any
+    more (issue #17)."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
@@ -575,7 +576,6 @@ async def test_setup_entry_skips_gen1_only_reads_on_gen2(
 
     coordinator = entry.runtime_data
     assert coordinator.motor_speed_percent is None
-    assert coordinator.allow_cloud_connection is None
 
 
 @pytest.mark.parametrize(

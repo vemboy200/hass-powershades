@@ -50,7 +50,7 @@
                 "step": {
                     "confirm": {
                         "title": "Réinitialiser le nom de serveur",
-                        "description": "Le paramètre Server Hostname de votre store est actuellement \"{hostname}\", et non \"{expected}\". Ce paramètre détermine le serveur auquel se connectent les commandes cloud du store - y compris Rechercher des mises à jour, l'entité de mise à jour Firmware et, si Autoriser la connexion au cloud est activé, le contrôle à distance (hors domicile) de l'application officielle PowerShades - et n'importe qui sur votre réseau peut le modifier, le protocole PowerShades n'ayant aucune authentification pour cela.\n\nSi Autoriser la connexion au cloud est activé, un nom de serveur non fiable ici signifie que les commandes de contrôle à distance de ce store pourraient être envoyées à un serveur qui n'est pas celui de PowerShades, et pas seulement des informations de firmware/version.\n\nL'action Installer de l'entité Firmware est bloquée tant que cette valeur n'est pas fiable. Rechercher des mises à jour continue de fonctionner, mais son résultat de \"dernière version\" ne doit pas être considéré comme fiable tant que ce n'est pas corrigé.\n\nSélectionnez Envoyer pour le réinitialiser au domaine propre de PowerShades, \"{expected}\", ou utilisez directement le service powershades.set_server_hostname si vous préférez définir une autre valeur."
+                        "description": "Le paramètre Server Hostname de votre store est actuellement \"{hostname}\", et non \"{expected}\". Ce paramètre détermine le serveur auquel se connectent les commandes cloud du store - y compris Rechercher des mises à jour, l'entité de mise à jour Firmware et le contrôle à distance (hors domicile) de l'application officielle PowerShades - et n'importe qui sur votre réseau peut le modifier, le protocole PowerShades n'ayant aucune authentification pour cela.\n\nUn nom de serveur non fiable ici signifie que les commandes de contrôle à distance de ce store pourraient être envoyées à un serveur qui n'est pas celui de PowerShades, et pas seulement des informations de firmware/version.\n\nL'action Installer de l'entité Firmware est bloquée tant que cette valeur n'est pas fiable. Rechercher des mises à jour continue de fonctionner, mais son résultat de \"dernière version\" ne doit pas être considéré comme fiable tant que ce n'est pas corrigé.\n\nSélectionnez Envoyer pour le réinitialiser au domaine propre de PowerShades, \"{expected}\", ou utilisez directement le service powershades.set_server_hostname si vous préférez définir une autre valeur."
                     }
                 },
                 "error": {
@@ -84,9 +84,6 @@
         "update_malformed_reply": {
             "message": "Réponse d'état mal formée de {ip_address}"
         },
-        "cloud_connection_not_confirmed": {
-            "message": "Le store à {ip_address} n'a pas confirmé son paramètre de connexion au cloud."
-        },
         "motor_speed_not_confirmed": {
             "message": "Le store à {ip_address} n'a pas confirmé son réglage de vitesse du moteur."
         },
@@ -94,7 +91,7 @@
             "message": "Le réglage de la vitesse du moteur n'est pris en charge que sur les appareils Gen 1 - {ip_address} indique {hw_version}."
         },
         "update_check_not_confirmed": {
-            "message": "Le store à {ip_address} n'a pas répondu à la vérification des mises à jour."
+            "message": "Le store à {ip_address} n'a pas répondu à la vérification des mises à jour. Certains stores n'y répondent jamais avec leur firmware actuel, même s'ils fonctionnent normalement par ailleurs."
         },
         "untrusted_server_hostname_blocked": {
             "message": "Installation refusée : le store à {ip_address} est configuré pour communiquer avec \"{hostname}\", pas avec les serveurs de PowerShades. Consultez le problème signalé pour plus de détails."
@@ -234,9 +231,6 @@
             }
         },
         "switch": {
-            "allow_cloud_connection": {
-                "name": "Autoriser la connexion au cloud"
-            },
             "reset_speed_after_move": {
                 "name": "Réinitialiser la vitesse après le mouvement"
             }

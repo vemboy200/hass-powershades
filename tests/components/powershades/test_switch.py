@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, patch
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pyowershades import (
-    DISABLE_TCP_CLOUD,
-    DISABLES_WRITE_FLAG,
     OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
@@ -24,124 +22,12 @@ from .conftest import (
     TEST_SERIAL,
     debug_info_packet,
     device_id_packet,
-    disables_packet,
-    fake_disables_device,
     status_packet,
 )
 
-ALLOW_CLOUD_CONNECTION_ENTITY_ID = (
-    "switch.powershade_bedroom_shade_allow_cloud_connection"
-)
 RESET_SPEED_AFTER_MOVE_ENTITY_ID = (
     "switch.powershade_bedroom_shade_reset_speed_after_move"
 )
-
-
-async def test_allow_cloud_connection_disabled_by_default(
-    hass: HomeAssistant, config_entry
-) -> None:
-    """The switch is registered but disabled by default."""
-    registry = er.async_get(hass)
-    entry = registry.async_get(ALLOW_CLOUD_CONNECTION_ENTITY_ID)
-
-    assert entry is not None
-    assert entry.disabled
-
-
-async def test_allow_cloud_connection_on_by_default_data(
-    hass: HomeAssistant, config_entry
-) -> None:
-    """Once enabled, the switch reflects the fetched Disables state (the
-    fixture's default reply has the TCP/cloud bit clear, i.e. allowed)."""
-    registry = er.async_get(hass)
-    registry.async_update_entity(ALLOW_CLOUD_CONNECTION_ENTITY_ID, disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    state = hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID)
-    assert state.state == "on"
-
-
-async def test_allow_cloud_connection_reflects_disabled_bit(
-    hass: HomeAssistant, config_entry
-) -> None:
-    """When the device reports the TCP/cloud bit set, the switch is off."""
-    registry = er.async_get(hass)
-    registry.async_update_entity(ALLOW_CLOUD_CONNECTION_ENTITY_ID, disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    # Reload replaces the coordinator/connection, so patch the new one
-    # and re-fetch rather than reloading again with a different mock.
-    coordinator = config_entry.runtime_data
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op == OP_DISABLES:
-            return disables_packet(tcp_cloud_disabled=True)
-        return b""
-
-    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
-    await coordinator.async_fetch_disables_state()
-    await hass.async_block_till_done()
-
-    state = hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID)
-    assert state.state == "off"
-
-
-async def test_turn_off_sends_disables_command(
-    hass: HomeAssistant, config_entry
-) -> None:
-    """Turning the switch off sets the TCP/cloud disable bit along with
-    the write flag."""
-    registry = er.async_get(hass)
-    registry.async_update_entity(ALLOW_CLOUD_CONNECTION_ENTITY_ID, disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    coordinator = config_entry.runtime_data
-    fake_request, _ = fake_disables_device()
-    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
-
-    await hass.services.async_call(
-        "switch",
-        "turn_off",
-        {"entity_id": ALLOW_CLOUD_CONNECTION_ENTITY_ID},
-        blocking=True,
-    )
-
-    coordinator.connection.async_request.assert_any_call(
-        OP_DISABLES, bytes([DISABLES_WRITE_FLAG | DISABLE_TCP_CLOUD])
-    )
-    assert hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID).state == "off"
-
-
-async def test_turn_on_sends_disables_command(
-    hass: HomeAssistant, config_entry
-) -> None:
-    """Turning the switch on clears the TCP/cloud disable bit."""
-    registry = er.async_get(hass)
-    registry.async_update_entity(ALLOW_CLOUD_CONNECTION_ENTITY_ID, disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    coordinator = config_entry.runtime_data
-    fake_request, _ = fake_disables_device(stored=DISABLE_TCP_CLOUD)
-    coordinator.connection.async_request = AsyncMock(side_effect=fake_request)
-    await coordinator.async_fetch_disables_state()
-    await hass.async_block_till_done()
-    assert hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID).state == "off"
-
-    await hass.services.async_call(
-        "switch",
-        "turn_on",
-        {"entity_id": ALLOW_CLOUD_CONNECTION_ENTITY_ID},
-        blocking=True,
-    )
-
-    coordinator.connection.async_request.assert_any_call(
-        OP_DISABLES, bytes([DISABLES_WRITE_FLAG])
-    )
-    assert hass.states.get(ALLOW_CLOUD_CONNECTION_ENTITY_ID).state == "on"
 
 
 async def _setup_entry_with_model_version(hass: HomeAssistant, model_version: int):
@@ -154,6 +40,14 @@ async def _setup_entry_with_model_version(hass: HomeAssistant, model_version: in
     )
     entry.add_to_hass(hass)
 
+    return await _setup_entry(
+        hass, AsyncMock(side_effect=_fake_request(model_version)), entry
+    )
+
+
+def _fake_request(model_version: int):
+    """Return an async_request side effect for a given model_version."""
+
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         if op == OP_GET_STATUS:
             return status_packet()
@@ -163,13 +57,24 @@ async def _setup_entry_with_model_version(hass: HomeAssistant, model_version: in
             return debug_info_packet()
         return build_packet(op)
 
+    return fake_request
+
+
+async def _setup_entry(
+    hass: HomeAssistant, request: AsyncMock, entry: MockConfigEntry | None = None
+) -> MockConfigEntry:
+    """Set up a config entry with the given mocked async_request."""
+    if entry is None:
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+            unique_id=str(TEST_SERIAL),
+        )
+        entry.add_to_hass(hass)
+
     with (
         patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
-        patch.object(
-            PowerShadesConnection,
-            "async_request",
-            AsyncMock(side_effect=fake_request),
-        ),
+        patch.object(PowerShadesConnection, "async_request", request),
         patch.object(PowerShadesConnection, "close"),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
@@ -202,15 +107,25 @@ async def test_reset_speed_after_move_not_created_on_gen2(
     assert registry.async_get(RESET_SPEED_AFTER_MOVE_ENTITY_ID) is None
 
 
-async def test_allow_cloud_connection_not_created_on_gen2(
+async def test_retired_cloud_switch_removed_from_registry(
     hass: HomeAssistant,
 ) -> None:
-    """Gen 2 never gets the switch - Feature Disables is unverified there
-    (issue #17)."""
-    await _setup_entry_with_model_version(hass, model_version=2)
-
+    """The retired Allow Cloud Connection switch is removed from the
+    registry on setup, and setup never reads Feature Disables any more."""
     registry = er.async_get(hass)
-    assert registry.async_get(ALLOW_CLOUD_CONNECTION_ENTITY_ID) is None
+    stale = registry.async_get_or_create(
+        "switch",
+        DOMAIN,
+        f"{DOMAIN}_{TEST_SERIAL}_allow_cloud_connection",
+        suggested_object_id="powershade_bedroom_shade_allow_cloud_connection",
+    )
+    assert registry.async_get(stale.entity_id) is not None
+
+    request = AsyncMock(side_effect=_fake_request(model_version=0))
+    await _setup_entry(hass, request)
+
+    assert registry.async_get(stale.entity_id) is None
+    assert OP_DISABLES not in [call.args[0] for call in request.call_args_list]
 
 
 async def test_turn_on_reset_speed_after_move(

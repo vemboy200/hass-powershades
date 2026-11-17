@@ -28,7 +28,6 @@ from pyowershades import (
     OP_ADMIN_ACCESS,
     OP_CLEAR_LIMITS,
     OP_CLOUD_UPDATE,
-    OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_SERIAL,
     OP_GET_SHADE_NAME,
@@ -49,7 +48,6 @@ from pyowershades import (
     PowerShadesTimeoutError,
     StatusReply,
     battery_percentage,
-    build_set_disables_payload,
     build_set_limit_payload,
     build_set_motor_speed_payload_gen1,
     build_set_name_payload,
@@ -57,7 +55,6 @@ from pyowershades import (
     build_set_server_hostname_payload,
     parse_cloud_update_reply,
     parse_debug_info_reply,
-    parse_disables_reply,
     parse_motor_parameters_reply,
     parse_serial_reply,
     parse_shade_name_reply,
@@ -140,11 +137,6 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
         self.model: int | None = entry.data.get("model")
         self.firmware_version: str | None = None
         self.hw_version: str | None = None
-        # Feature Disables (op 0x35) - configuration, not telemetry, so
-        # it's only fetched once at setup and again after this
-        # integration writes a change, not on every regular poll.
-        self.allow_cloud_connection: bool | None = None
-        self._disables_raw: int | None = None
         # PoE Motor Parameters (op 0x27) - also configuration, fetched
         # once at setup and again after a write, not on every poll.
         self.motor_speed_percent: int | None = None
@@ -528,60 +520,6 @@ class PowerShadesCoordinator(DataUpdateCoordinator[PowerShadesData]):
                 translation_placeholders={"ip_address": self.ip_address},
             )
         _LOGGER.info("Set motor speed=%s%% for %s", percent, self.ip_address)
-
-    async def async_fetch_disables_state(self) -> None:
-        """Fetch the current Feature Disables byte.
-
-        Best-effort: leaves allow_cloud_connection unset on failure or a
-        malformed reply, matching _async_fetch_device_id_info's approach
-        to other setup-time-only info.
-        """
-        try:
-            reply = await self.connection.async_request(OP_DISABLES)
-        except PowerShadesTimeoutError:
-            return
-        disables = parse_disables_reply(reply)
-        if disables is None:
-            return
-        self._disables_raw = disables.raw
-        self.allow_cloud_connection = not disables.tcp_cloud_disabled
-        self.async_update_listeners()
-
-    async def async_set_allow_cloud_connection(self, allow: bool) -> None:
-        """Enable or disable the shade's TCP/cloud connectivity.
-
-        Reads the current Feature Disables byte first and only flips the
-        TCP/cloud bit - a blind write would silently clear whichever
-        other Feature Disables bits the device already has set (e.g. via
-        the official app). The Set's own reply doesn't confirm what was
-        written, so the byte is read back afterwards instead.
-        """
-        await self.async_fetch_disables_state()
-        if self._disables_raw is None:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="cloud_connection_not_confirmed",
-                translation_placeholders={"ip_address": self.ip_address},
-            )
-        payload = build_set_disables_payload(
-            self._disables_raw, tcp_cloud_disabled=not allow
-        )
-        try:
-            await self.connection.async_request(OP_DISABLES, payload)
-        except PowerShadesTimeoutError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="cloud_connection_not_confirmed",
-                translation_placeholders={"ip_address": self.ip_address},
-            ) from err
-        await self.async_fetch_disables_state()
-        if self.allow_cloud_connection is not allow:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="cloud_connection_not_confirmed",
-                translation_placeholders={"ip_address": self.ip_address},
-            )
-        _LOGGER.info("Set allow_cloud_connection=%s for %s", allow, self.ip_address)
 
     async def async_set_shade_name(self, name: str) -> None:
         """Rename the shade on the device and sync the new name into HA."""
