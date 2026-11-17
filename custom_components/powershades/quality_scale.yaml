@@ -81,7 +81,7 @@ rules:
   test-coverage: done
   comment: |
     tests cover the config flow, coordinator (polling, push updates, real motor state
-    refresh, services, Feature Disables read-modify-write, admin-gated Gen 1 motor
+    refresh, services, admin-gated Gen 1 motor
     speed set, the tight-poll wait-for-stop loop and its timeout, Cloud Update
     Check/Trigger, Set Server Hostname's write-then-confirm-by-readback pattern,
     the untrusted-server-hostname hard block on install), protocol parsing/building,
@@ -139,7 +139,7 @@ rules:
     diagnostic sensors (battery, voltage, LED color, error, current RPM, motor power)
     and binary sensors (motor awake, charging), diagnostic buttons (identify, reboot,
     check for updates), config buttons (toggle, jog/limit tools), and the config
-    switches/numbers (allow cloud connection, reset speed after move, reset speed to)
+    switch/numbers (reset speed after move, reset speed to)
     use entity_category appropriately. The Speed number entity is deliberately
     uncategorized (Control) rather than Configuration - it's meant for active,
     day-to-day use (e.g. automations), not a rarely-touched setting. The cover's
@@ -164,11 +164,7 @@ rules:
     the non-reversible limit buttons (set upper/lower limit, clear limits, save limits),
     are entity_registry_enabled_default=False - the latter since an accidental press could
     miscalibrate the shade's travel range. Jog/Step
-    stay enabled since jogging/stepping the other way undoes them. The allow-cloud-connection
-    switch is also disabled by default - most users have no reason to touch it, and it's
-    not yet verified against real hardware (docs/KNOWN_BEHAVIORS.md in pyowershades),
-    matching the precedent of Home Connect Local's analogous AllowBackendConnection switch.
-    The Speed number entity is deliberately enabled by default instead - it's meant for
+    stay enabled since jogging/stepping the other way undoes them. The Speed number entity is deliberately enabled by default instead - it's meant for
     active use (e.g. slower for nighttime automations, faster for manual use), not a
     rarely-touched setting, even though setting it is admin-gated and unverified
     against real hardware. Reset Speed After Move and Reset Speed To (Gen 1 only,

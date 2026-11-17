@@ -24,41 +24,12 @@ async def async_setup_entry(
     """Set up PowerShades switches from a config entry."""
     coordinator = entry.runtime_data
     entities: list[SwitchEntity] = []
-    # Both are Gen 1 only. Allow Cloud Connection reads and writes Feature
-    # Disables, which is unverified on Gen 2 (see async_setup_entry and
-    # issue #17). The cover's Slow/Medium/Fast speed presets only exist on
+    # Gen 1 only: the cover's Slow/Medium/Fast speed presets only exist on
     # Gen 1 (see cover.py's supported_speeds), so resetting speed after a
     # move is meaningless anywhere else.
     if coordinator.hw_version == "Gen 1":
-        entities.append(PowerShadesAllowCloudConnectionSwitch(coordinator))
         entities.append(PowerShadesResetSpeedAfterMoveSwitch(coordinator))
     async_add_entities(entities)
-
-
-class PowerShadesAllowCloudConnectionSwitch(PowerShadesEntity, SwitchEntity):
-    """Controls whether the shade may connect to PowerShades' cloud."""
-
-    _attr_translation_key = "allow_cloud_connection"
-    _attr_icon = "mdi:cloud"
-    _attr_entity_category = EntityCategory.CONFIG
-    _attr_entity_registry_enabled_default = False
-
-    def __init__(self, coordinator: PowerShadesCoordinator) -> None:
-        """Initialize the switch."""
-        super().__init__(coordinator, "allow_cloud_connection")
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return whether the shade's cloud connectivity is enabled."""
-        return self.coordinator.allow_cloud_connection
-
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        """Allow the shade to connect to PowerShades' cloud."""
-        await self.coordinator.async_set_allow_cloud_connection(True)
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Block the shade from connecting to PowerShades' cloud."""
-        await self.coordinator.async_set_allow_cloud_connection(False)
 
 
 class PowerShadesResetSpeedAfterMoveSwitch(

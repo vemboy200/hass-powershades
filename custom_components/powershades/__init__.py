@@ -8,6 +8,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 from pyowershades import (
@@ -225,21 +226,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: PowerShadesConfigEntry) 
 
     await _async_fetch_serial_info(hass, entry, coordinator)
     await _async_fetch_device_id_info(coordinator)
-    # Feature Disables and motor speed only feed Gen 1-only entities (the
-    # cloud switch and speed controls), so nothing else is sent them. A
-    # Gen 2 shade stopped moving from every control right after these were
-    # sent during setup, until a factory reset (issue #17). Toggling its
-    # cloud switch later read and wrote Feature Disables without breaking
-    # it, which leaves the motor speed read as the main suspect: it carries
-    # no payload, and its first payload byte is what picks get vs. set.
+    # Motor speed only feeds Gen 1-only entities (the speed controls), so
+    # nothing else is sent it. A Gen 2 shade stopped moving from every
+    # control right after this and a Feature Disables read were sent during
+    # setup, until a factory reset (issue #17). Toggling its cloud switch
+    # later read and wrote Feature Disables without breaking it, which
+    # leaves the motor speed read as the main suspect: it carries no
+    # payload, and its first payload byte is what picks get vs. set.
     if coordinator.hw_version == "Gen 1":
-        await coordinator.async_fetch_disables_state()
         await coordinator.async_fetch_motor_speed()
+    _async_remove_cloud_switch(hass, entry, coordinator)
     _async_check_rf_gateway(hass, entry, coordinator)
     _async_check_server_hostname(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _async_remove_cloud_switch(
+    hass: HomeAssistant,
+    entry: PowerShadesConfigEntry,
+    coordinator: PowerShadesCoordinator,
+) -> None:
+    """Remove the retired Allow Cloud Connection switch from the registry.
+
+    With cloud turned off, a Gen 1 shade stopped answering local commands
+    every minute or two from its daily cloud check-in until cloud was
+    turned back on, so the switch was removed rather than left as a trap.
+    """
+    ent_reg = er.async_get(hass)
+    for owner in (coordinator.serial_number, entry.entry_id):
+        if not owner:
+            continue
+        entity_id = ent_reg.async_get_entity_id(
+            Platform.SWITCH, DOMAIN, f"{DOMAIN}_{owner}_allow_cloud_connection"
+        )
+        if entity_id is not None:
+            ent_reg.async_remove(entity_id)
 
 
 async def async_unload_entry(

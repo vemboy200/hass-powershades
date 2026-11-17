@@ -5,10 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from pyowershades import (
-    DISABLE_TCP_CLOUD,
-    DISABLES_WRITE_FLAG,
     OP_CLOUD_UPDATE,
-    OP_DISABLES,
     OP_GET_DEBUG_INFO,
     OP_GET_DEVICE_ID,
     OP_GET_SERIAL,
@@ -161,34 +158,6 @@ def device_id_packet(
     return build_packet(OP_GET_DEVICE_ID, payload=payload)
 
 
-def disables_packet(
-    *, tcp_cloud_disabled: bool = False, other_bits: int = 0x00
-) -> bytes:
-    """Build a Get/Set Disables reply packet. A real Get never reports
-    the write flag (bit 0), so it's left out by default."""
-    byte = other_bits | (DISABLE_TCP_CLOUD if tcp_cloud_disabled else 0)
-    return build_packet(OP_DISABLES, payload=bytes([byte]))
-
-
-def fake_disables_device(stored: int = 0x00):
-    """Return an async_request side effect that stores Set Disables bytes
-    the way real hardware does: a write only lands with the write flag
-    set, the flag itself isn't stored, and the Set's reply always reads
-    0x00 rather than confirming what was written."""
-    state = {"byte": stored}
-
-    async def fake_request(op, payload=b"", timeout=None, retries=None):
-        if op != OP_DISABLES:
-            return b""
-        if payload:
-            if payload[0] & DISABLES_WRITE_FLAG:
-                state["byte"] = payload[0] & ~DISABLES_WRITE_FLAG
-            return build_packet(OP_DISABLES, payload=b"\x00")
-        return build_packet(OP_DISABLES, payload=bytes([state["byte"]]))
-
-    return fake_request, state
-
-
 def motor_params_packet(
     *,
     speed_control_enable: int = 0,
@@ -294,8 +263,6 @@ def mock_connection():
             return debug_info_packet()
         if op == OP_GET_DEVICE_ID:
             return device_id_packet()
-        if op == OP_DISABLES:
-            return disables_packet()
         if op == OP_POE_MOTOR_PARAMS:
             return motor_params_packet()
         if op == OP_CLOUD_UPDATE:

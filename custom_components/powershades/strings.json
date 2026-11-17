@@ -50,7 +50,7 @@
                 "step": {
                     "confirm": {
                         "title": "Reset Server Hostname",
-                        "description": "Your shade's Server Hostname setting is currently \"{hostname}\", not \"{expected}\". This setting controls where the shade's own cloud-facing commands connect - including Check for Updates, the Firmware update entity, and, if Allow Cloud Connection is enabled, the official PowerShades app's remote (away-from-home) control - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nIf Allow Cloud Connection is on, an untrusted hostname here means remote-control commands for this shade could be going to a server that isn't PowerShades' own, not just firmware/version info.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value. Checking for updates still works, but its \"latest version\" result should not be trusted until this is corrected.\n\nSelect Submit to reset it back to PowerShades' own domain, \"{expected}\", or use the powershades.set_server_hostname service directly if you'd rather set a different value."
+                        "description": "Your shade's Server Hostname setting is currently \"{hostname}\", not \"{expected}\". This setting controls where the shade's own cloud-facing commands connect - including Check for Updates, the Firmware update entity, and the official PowerShades app's remote (away-from-home) control - and it can be changed by anyone on your network, since PowerShades' protocol has no authentication for this.\n\nAn untrusted hostname here means remote-control commands for this shade could be going to a server that isn't PowerShades' own, not just firmware/version info.\n\nThe Firmware update entity's Install action is blocked while this is set to an untrusted value. Checking for updates still works, but its \"latest version\" result should not be trusted until this is corrected.\n\nSelect Submit to reset it back to PowerShades' own domain, \"{expected}\", or use the powershades.set_server_hostname service directly if you'd rather set a different value."
                     }
                 },
                 "error": {
@@ -84,9 +84,6 @@
         "update_malformed_reply": {
             "message": "Malformed status reply from {ip_address}"
         },
-        "cloud_connection_not_confirmed": {
-            "message": "Shade at {ip_address} did not confirm its cloud connectivity setting."
-        },
         "motor_speed_not_confirmed": {
             "message": "Shade at {ip_address} did not confirm its motor speed setting."
         },
@@ -94,7 +91,7 @@
             "message": "Setting motor speed is only supported on Gen 1 devices - {ip_address} reports {hw_version}."
         },
         "update_check_not_confirmed": {
-            "message": "Shade at {ip_address} did not respond to the update check."
+            "message": "Shade at {ip_address} did not respond to the update check. Some shades never answer it on their current firmware, even though they're otherwise working normally."
         },
         "untrusted_server_hostname_blocked": {
             "message": "Refusing to install: shade at {ip_address} is configured to talk to \"{hostname}\", not PowerShades' own servers. See the repair issue for details."
@@ -234,9 +231,6 @@
             }
         },
         "switch": {
-            "allow_cloud_connection": {
-                "name": "Allow Cloud Connection"
-            },
             "reset_speed_after_move": {
                 "name": "Reset Speed After Move"
             }
