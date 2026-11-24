@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 
 from homeassistant.const import Platform
@@ -151,9 +152,35 @@ def _async_check_rf_gateway(
     )
 
 
-def _server_hostname_issue_id(entry: PowerShadesConfigEntry) -> str:
-    """Return the repair issue ID for an untrusted server hostname."""
+def _server_hostname_issue_prefix(entry: PowerShadesConfigEntry) -> str:
+    """Return the start of every untrusted-hostname issue ID for an entry."""
     return f"untrusted_server_hostname_{entry.entry_id}"
+
+
+def _server_hostname_issue_id(entry: PowerShadesConfigEntry, hostname: str) -> str:
+    """Return the repair issue ID for one specific untrusted hostname.
+
+    The hostname is part of the ID so that ignoring the issue (for a local
+    server someone set on purpose) only covers that exact value. If the
+    shade later reports any other untrusted hostname, that's a new issue
+    and shows up again.
+    """
+    digest = hashlib.sha256(hostname.encode()).hexdigest()[:12]
+    return f"{_server_hostname_issue_prefix(entry)}_{digest}"
+
+
+def _async_delete_server_hostname_issues(
+    hass: HomeAssistant, entry: PowerShadesConfigEntry, keep: str | None = None
+) -> None:
+    """Delete this entry's untrusted-hostname issues, except `keep`.
+
+    The prefix also matches the ID used before the hostname was part of
+    it, so that one is cleaned up too.
+    """
+    prefix = _server_hostname_issue_prefix(entry)
+    for domain, issue_id in list(ir.async_get(hass).issues):
+        if domain == DOMAIN and issue_id.startswith(prefix) and issue_id != keep:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 def _async_check_server_hostname(
@@ -180,13 +207,12 @@ def _async_check_server_hostname(
     confirm the write actually took before this issue is considered
     resolved.
     """
-    issue_id = _server_hostname_issue_id(entry)
-    if (
-        not coordinator.server_hostname
-        or coordinator.server_hostname in TRUSTED_SERVER_HOSTNAMES.values()
-    ):
-        ir.async_delete_issue(hass, DOMAIN, issue_id)
+    hostname = coordinator.server_hostname
+    if not hostname or hostname in TRUSTED_SERVER_HOSTNAMES.values():
+        _async_delete_server_hostname_issues(hass, entry)
         return
+    issue_id = _server_hostname_issue_id(entry, hostname)
+    _async_delete_server_hostname_issues(hass, entry, keep=issue_id)
     expected = coordinator.expected_server_hostname
     if expected is None:
         # Get Device ID didn't answer this setup, so the generation (and
@@ -202,7 +228,7 @@ def _async_check_server_hostname(
         translation_key="untrusted_server_hostname",
         translation_placeholders={
             "name": entry.title,
-            "hostname": coordinator.server_hostname,
+            "hostname": hostname,
             "expected": expected,
         },
         data={"entry_id": entry.entry_id},
@@ -269,6 +295,15 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: PowerShadesConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    # The untrusted-hostname issue is left in place on purpose: deleting it
+    # here would also forget that the user ignored it, every time the entry
+    # reloads. It goes away in async_remove_entry instead.
     ir.async_delete_issue(hass, DOMAIN, _rf_gateway_issue_id(entry))
-    ir.async_delete_issue(hass, DOMAIN, _server_hostname_issue_id(entry))
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: PowerShadesConfigEntry
+) -> None:
+    """Clean up repair issues when a config entry is removed."""
+    _async_delete_server_hostname_issues(hass, entry)

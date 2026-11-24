@@ -55,6 +55,9 @@
                 },
                 "error": {
                     "reset_failed": "Impossible de confirmer le nouveau nom de serveur - le store est peut-être injoignable, ou n'a pas accepté le changement. Vérifiez l'appareil et réessayez."
+                },
+                "abort": {
+                    "not_loaded": "{name} n'est pas chargé pour le moment, donc son nom de serveur ne peut pas être modifié. Réessayez une fois le store de nouveau disponible."
                 }
             }
         }

@@ -12,6 +12,7 @@ from pyowershades import (
     build_set_server_hostname_payload,
 )
 
+from custom_components.powershades import _server_hostname_issue_id
 from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 
 from .conftest import serial_packet
@@ -84,7 +85,7 @@ async def test_set_server_hostname_clears_untrusted_repair_issue(
     await hass.async_block_till_done()
 
     issue_registry = ir.async_get(hass)
-    issue_id = f"untrusted_server_hostname_{config_entry.entry_id}"
+    issue_id = _server_hostname_issue_id(config_entry, "evil.example.com")
     assert issue_registry.async_get_issue(DOMAIN, issue_id) is not None
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):

@@ -145,3 +145,20 @@ async def test_async_step_init_goes_to_confirm(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "confirm"
+
+
+async def test_confirm_step_aborts_when_entry_not_loaded(
+    hass: HomeAssistant, config_entry
+) -> None:
+    """The issue outlives a reload, so the flow can be opened while the
+    shade isn't loaded. It aborts instead of touching a missing
+    coordinator."""
+    flow = UntrustedServerHostnameRepairFlow(config_entry)
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await flow.async_step_confirm()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "not_loaded"
+    assert result["description_placeholders"] == {"name": config_entry.title}

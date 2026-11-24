@@ -55,6 +55,9 @@
                 },
                 "error": {
                     "reset_failed": "Could not confirm the new hostname was set - the shade may be unreachable, or didn't accept the change. Check the device and try again."
+                },
+                "abort": {
+                    "not_loaded": "{name} isn't loaded right now, so its Server Hostname can't be changed. Once the shade is back, try again."
                 }
             }
         }
