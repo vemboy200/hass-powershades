@@ -21,6 +21,7 @@ from pyowershades import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.powershades import _server_hostname_issue_id
 from custom_components.powershades.const import DOMAIN, TRUSTED_SERVER_HOSTNAMES
 from custom_components.powershades.coordinator import PowerShadesCoordinator
 
@@ -341,7 +342,7 @@ async def test_setup_entry_warns_on_untrusted_server_hostname(
 
     issue_registry = ir.async_get(hass)
     issue = issue_registry.async_get_issue(
-        DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+        DOMAIN, _server_hostname_issue_id(entry, "evil.example.com")
     )
     assert issue is not None
     assert issue.severity is ir.IssueSeverity.CRITICAL
@@ -422,7 +423,7 @@ async def test_server_hostname_issue_per_generation(
         await hass.async_block_till_done()
 
     issue = ir.async_get(hass).async_get_issue(
-        DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
+        DOMAIN, _server_hostname_issue_id(entry, hostname)
     )
     if translation_key is None:
         assert issue is None
@@ -441,13 +442,7 @@ async def test_setup_entry_no_issue_for_trusted_server_hostname(
         config_entry.runtime_data.server_hostname == TRUSTED_SERVER_HOSTNAMES["Gen 1"]
     )
 
-    issue_registry = ir.async_get(hass)
-    assert (
-        issue_registry.async_get_issue(
-            DOMAIN, f"untrusted_server_hostname_{config_entry.entry_id}"
-        )
-        is None
-    )
+    assert not _hostname_issue_ids(hass, config_entry)
 
 
 async def test_setup_entry_no_issue_when_hostname_never_configured(
@@ -485,23 +480,12 @@ async def test_setup_entry_no_issue_when_hostname_never_configured(
 
     assert entry.runtime_data.server_hostname is None
 
-    issue_registry = ir.async_get(hass)
-    assert (
-        issue_registry.async_get_issue(
-            DOMAIN, f"untrusted_server_hostname_{entry.entry_id}"
-        )
-        is None
-    )
+    assert not _hostname_issue_ids(hass, entry)
 
 
-async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) -> None:
-    """Unloading an untrusted-hostname entry clears its repair issue."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
-        unique_id=str(TEST_SERIAL),
-    )
-    entry.add_to_hass(hass)
+def _hostname_request(hostnames: list[str]):
+    """Fake device whose Server Hostname is read from `hostnames[0]`, so a
+    test can change it between setups."""
 
     async def fake_request(op, payload=b"", timeout=None, retries=None):
         if op == OP_GET_STATUS:
@@ -509,31 +493,141 @@ async def test_unload_entry_clears_server_hostname_issue(hass: HomeAssistant) ->
         if op == OP_GET_DEBUG_INFO:
             return debug_info_packet()
         if op == OP_GET_SERIAL:
-            return serial_packet(server_hostname="evil.example.com")
+            return serial_packet(server_hostname=hostnames[0])
         if op == OP_GET_DEVICE_ID:
             return device_id_packet()
         return build_packet(op)
+
+    return fake_request
+
+
+def _hostname_issue_ids(hass: HomeAssistant, entry: MockConfigEntry) -> set[str]:
+    """Return every untrusted-hostname issue ID for an entry."""
+    prefix = f"untrusted_server_hostname_{entry.entry_id}"
+    return {
+        issue_id
+        for domain, issue_id in ir.async_get(hass).issues
+        if domain == DOMAIN and issue_id.startswith(prefix)
+    }
+
+
+async def test_ignored_hostname_issue_survives_reload_until_hostname_changes(
+    hass: HomeAssistant,
+) -> None:
+    """Ignoring the issue sticks across reloads for that exact hostname,
+    and a different untrusted hostname raises a new, visible issue."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+    hostnames = ["192.168.1.238"]
+    issue_registry = ir.async_get(hass)
 
     with (
         patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
         patch.object(
             PowerShadesConnection,
             "async_request",
-            AsyncMock(side_effect=fake_request),
+            AsyncMock(side_effect=_hostname_request(hostnames)),
         ),
         patch.object(PowerShadesConnection, "close"),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        issue_registry = ir.async_get(hass)
-        issue_id = f"untrusted_server_hostname_{entry.entry_id}"
-        assert issue_registry.async_get_issue(DOMAIN, issue_id)
+        local_id = _server_hostname_issue_id(entry, "192.168.1.238")
+        assert _hostname_issue_ids(hass, entry) == {local_id}
+        ir.async_ignore_issue(hass, DOMAIN, local_id, True)
+
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+        issue = issue_registry.async_get_issue(DOMAIN, local_id)
+        assert issue is not None
+        assert issue.dismissed_version is not None
+
+        hostnames[0] = "evil.example.com"
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+
+    evil_id = _server_hostname_issue_id(entry, "evil.example.com")
+    assert _hostname_issue_ids(hass, entry) == {evil_id}
+    issue = issue_registry.async_get_issue(DOMAIN, evil_id)
+    assert issue is not None
+    assert issue.dismissed_version is None
+
+
+async def test_setup_entry_removes_legacy_hostname_issue(
+    hass: HomeAssistant,
+) -> None:
+    """The issue ID from before the hostname was part of it is replaced."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+    legacy_id = f"untrusted_server_hostname_{entry.entry_id}"
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        legacy_id,
+        is_fixable=True,
+        severity=ir.IssueSeverity.CRITICAL,
+        translation_key="untrusted_server_hostname",
+        data={"entry_id": entry.entry_id},
+    )
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=_hostname_request(["evil.example.com"])),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert _hostname_issue_ids(hass, entry) == {
+        _server_hostname_issue_id(entry, "evil.example.com")
+    }
+
+
+async def test_remove_entry_clears_server_hostname_issue(hass: HomeAssistant) -> None:
+    """Unloading keeps the untrusted-hostname issue (so an ignore isn't
+    lost); removing the entry clears it."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"ip": TEST_IP, "serial": TEST_SERIAL, "name": TEST_NAME, "model": 1},
+        unique_id=str(TEST_SERIAL),
+    )
+    entry.add_to_hass(hass)
+
+    with (
+        patch.object(PowerShadesConnection, "async_connect", AsyncMock()),
+        patch.object(
+            PowerShadesConnection,
+            "async_request",
+            AsyncMock(side_effect=_hostname_request(["evil.example.com"])),
+        ),
+        patch.object(PowerShadesConnection, "close"),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        issue_id = _server_hostname_issue_id(entry, "evil.example.com")
 
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+        assert _hostname_issue_ids(hass, entry) == {issue_id}
 
-    assert issue_registry.async_get_issue(DOMAIN, issue_id) is None
+        await hass.config_entries.async_remove(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert not _hostname_issue_ids(hass, entry)
 
 
 async def test_setup_entry_skips_gen1_only_reads_on_gen2(

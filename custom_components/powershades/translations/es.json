@@ -55,6 +55,9 @@
                 },
                 "error": {
                     "reset_failed": "No se pudo confirmar el nuevo nombre de servidor - la persiana puede no estar accesible, o no aceptó el cambio. Comprueba el dispositivo e inténtalo de nuevo."
+                },
+                "abort": {
+                    "not_loaded": "{name} no está cargada en este momento, así que no se puede cambiar su nombre de servidor. Cuando la persiana vuelva a estar disponible, inténtalo de nuevo."
                 }
             }
         }

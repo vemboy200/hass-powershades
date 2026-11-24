@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.components.repairs import RepairsFlow, RepairsFlowResult
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
@@ -27,6 +28,13 @@ class UntrustedServerHostnameRepairFlow(RepairsFlow):
     ) -> RepairsFlowResult:
         """Reset the hostname on confirm, showing the current (untrusted)
         value so the user can see what's about to change."""
+        # The issue outlives a reload (so an ignore sticks), so it can be
+        # opened while the shade isn't loaded and there's nothing to talk to.
+        if self.entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(
+                reason="not_loaded",
+                description_placeholders={"name": self.entry.title},
+            )
         coordinator = self.entry.runtime_data
         # The issue is only raised when the generation, and so this, is known.
         expected = coordinator.expected_server_hostname
